@@ -118,7 +118,7 @@ function AttendancePageContent() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Attendance</h1>
           <p className="text-sm text-muted-foreground">
-            Track and manage employee attendance records.
+            Track and manage employee attendance record.
           </p>
         </div>
       </div>
