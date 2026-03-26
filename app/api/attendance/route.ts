@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
-  const { action, employeeId } = body
+  const { action, employeeId, checkInPhoto, checkOutPhoto } = body
 
   const today = new Date().toISOString().split("T")[0]
   const now = new Date()
@@ -39,12 +39,13 @@ export async function POST(req: NextRequest) {
   if (action === "checkIn") {
     const record = await prisma.attendance.upsert({
       where: { employeeId_date: { employeeId, date: today } },
-      update: { checkIn: time, status: "present" },
+      update: { checkIn: time, status: "present", checkInPhoto: checkInPhoto ?? null },
       create: {
         employeeId,
         date: today,
         checkIn: time,
         checkOut: null,
+        checkInPhoto: checkInPhoto ?? null,
         status: "present",
         workHours: 0,
         overtime: 0,
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
       where: { employeeId_date: { employeeId, date: today } },
       data: {
         checkOut: time,
+        checkOutPhoto: checkOutPhoto ?? null,
         workHours: Math.round(workHours * 10) / 10,
         overtime: Math.max(0, Math.round((workHours - 8) * 10) / 10),
       },

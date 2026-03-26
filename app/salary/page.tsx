@@ -136,7 +136,7 @@ function SalaryPageContent() {
   return (
     <>
       {/* Page Title */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Salary & Payroll</h1>
           <p className="text-sm text-muted-foreground">
@@ -164,7 +164,7 @@ function SalaryPageContent() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card className="border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -228,7 +228,7 @@ function SalaryPageContent() {
       {/* Salary Table */}
       <Card className="border-border/50">
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SalaryRecord["status"] | "all")}>
               <TabsList>
                 <TabsTrigger value="all">All</TabsTrigger>
@@ -245,13 +245,13 @@ function SalaryPageContent() {
               </TabsList>
             </Tabs>
             <div className="flex items-center gap-2">
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search employees..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-64"
+                  className="pl-9 w-full sm:w-52"
                 />
               </div>
               <DropdownMenu>
@@ -297,6 +297,7 @@ function SalaryPageContent() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -391,6 +392,7 @@ function SalaryPageContent() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

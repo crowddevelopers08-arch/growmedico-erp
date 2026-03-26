@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { CalendarIcon, Clock, LogIn, LogOut, Search, ChevronLeft, ChevronRight, Users } from "lucide-react"
+import { CalendarIcon, Clock, LogIn, LogOut, Search, ChevronLeft, ChevronRight, Users, ImageOff } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useHR } from "@/lib/hr-context"
+import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 
 const getStatusBadge = (status: string) => {
@@ -42,8 +49,11 @@ const getStatusBadge = (status: string) => {
 
 function AttendancePageContent() {
   const { employees, attendance, checkIn, checkOut, getAttendanceByDate } = useHR()
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [searchQuery, setSearchQuery] = useState("")
+  const [photoPreview, setPhotoPreview] = useState<{ src: string; label: string } | null>(null)
 
   const dateStr = selectedDate.toISOString().split("T")[0]
   const todayStr = new Date().toISOString().split("T")[0]
@@ -126,16 +136,16 @@ function AttendancePageContent() {
       {/* Date Selector */}
       <Card className="border-border/50">
         <CardContent className="py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="icon" onClick={goToPreviousDay}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="shrink-0" onClick={goToPreviousDay}>
                 <ChevronLeft className="size-4" />
               </Button>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="min-w-64 justify-start">
-                    <CalendarIcon className="mr-2 size-4" />
-                    {formatDate(selectedDate)}
+                  <Button variant="outline" className="flex-1 sm:min-w-64 justify-start text-left">
+                    <CalendarIcon className="mr-2 size-4 shrink-0" />
+                    <span className="truncate">{formatDate(selectedDate)}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -147,12 +157,12 @@ function AttendancePageContent() {
                   />
                 </PopoverContent>
               </Popover>
-              <Button variant="outline" size="icon" onClick={goToNextDay}>
+              <Button variant="outline" size="icon" className="shrink-0" onClick={goToNextDay}>
                 <ChevronRight className="size-4" />
               </Button>
             </div>
             {!isToday && (
-              <Button variant="ghost" onClick={() => setSelectedDate(new Date())}>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedDate(new Date())}>
                 Go to Today
               </Button>
             )}
@@ -161,7 +171,7 @@ function AttendancePageContent() {
       </Card>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card className="border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -222,22 +232,23 @@ function AttendancePageContent() {
       {/* Attendance Table */}
       <Card className="border-border/50">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">
-            Attendance Records - {formatDate(selectedDate)}
-          </CardTitle>
-          <CardAction>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="text-base font-semibold">
+              Attendance Records - {formatDate(selectedDate)}
+            </CardTitle>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search employees..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-64"
+                className="pl-9 w-full sm:w-56"
               />
             </div>
-          </CardAction>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -245,6 +256,7 @@ function AttendancePageContent() {
                 <TableHead>Department</TableHead>
                 <TableHead>Check In</TableHead>
                 <TableHead>Check Out</TableHead>
+                {isAdmin && <TableHead className="w-28">Punch Photos</TableHead>}
                 <TableHead>Work Hours</TableHead>
                 <TableHead>Status</TableHead>
                 {isToday && <TableHead className="w-32">Actions</TableHead>}
@@ -282,6 +294,51 @@ function AttendancePageContent() {
                       <span className="text-muted-foreground">--:--</span>
                     )}
                   </TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {record?.checkInPhoto ? (
+                          <button
+                            onClick={() => setPhotoPreview({ src: record.checkInPhoto!, label: `${employee.name} — Punch In` })}
+                            className="relative group/photo"
+                            title="View punch-in photo"
+                          >
+                            <img
+                              src={record.checkInPhoto}
+                              alt="Punch In"
+                              className="size-8 rounded-md object-cover ring-2 ring-emerald-500/40 hover:ring-emerald-500 transition-all"
+                            />
+                            <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white font-bold">I</span>
+                          </button>
+                        ) : record?.checkIn ? (
+                          <div className="size-8 rounded-md bg-muted flex items-center justify-center" title="No punch-in photo">
+                            <ImageOff className="size-3.5 text-muted-foreground/50" />
+                          </div>
+                        ) : null}
+                        {record?.checkOutPhoto ? (
+                          <button
+                            onClick={() => setPhotoPreview({ src: record.checkOutPhoto!, label: `${employee.name} — Punch Out` })}
+                            className="relative group/photo"
+                            title="View punch-out photo"
+                          >
+                            <img
+                              src={record.checkOutPhoto}
+                              alt="Punch Out"
+                              className="size-8 rounded-md object-cover ring-2 ring-orange-500/40 hover:ring-orange-500 transition-all"
+                            />
+                            <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] text-white font-bold">O</span>
+                          </button>
+                        ) : record?.checkOut ? (
+                          <div className="size-8 rounded-md bg-muted flex items-center justify-center" title="No punch-out photo">
+                            <ImageOff className="size-3.5 text-muted-foreground/50" />
+                          </div>
+                        ) : null}
+                        {!record?.checkIn && !record?.checkOut && (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell className="text-sm">
                     {record?.workHours ? (
                       <div>
@@ -332,8 +389,25 @@ function AttendancePageContent() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Photo Preview Dialog */}
+      <Dialog open={!!photoPreview} onOpenChange={(o) => !o && setPhotoPreview(null)}>
+        <DialogContent className="max-w-sm p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-3">
+            <DialogTitle className="text-sm font-medium">{photoPreview?.label}</DialogTitle>
+          </DialogHeader>
+          {photoPreview && (
+            <img
+              src={photoPreview.src}
+              alt={photoPreview.label}
+              className="w-full object-cover"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

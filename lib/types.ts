@@ -29,6 +29,8 @@ export interface Attendance {
   date: string
   checkIn: string | null
   checkOut: string | null
+  checkInPhoto?: string | null
+  checkOutPhoto?: string | null
   status: EmployeeStatus
   workHours: number
   overtime: number

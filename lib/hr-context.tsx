@@ -14,8 +14,8 @@ interface HRContextType {
 
   // Attendance
   attendance: Attendance[]
-  checkIn: (employeeId: string) => Promise<void>
-  checkOut: (employeeId: string) => Promise<void>
+  checkIn: (employeeId: string, photo?: string | null) => Promise<void>
+  checkOut: (employeeId: string, photo?: string | null) => Promise<void>
   getAttendanceByDate: (date: string) => Attendance[]
   getAttendanceByEmployee: (employeeId: string) => Attendance[]
   refreshAttendance: () => Promise<void>
@@ -139,20 +139,20 @@ export function HRProvider({ children }: { children: ReactNode }) {
     return employees.find((emp) => emp.id === id)
   }, [employees])
 
-  const checkIn = useCallback(async (employeeId: string) => {
+  const checkIn = useCallback(async (employeeId: string, photo?: string | null) => {
     await apiFetch("/api/attendance", {
       method: "POST",
-      body: JSON.stringify({ action: "checkIn", employeeId }),
+      body: JSON.stringify({ action: "checkIn", employeeId, checkInPhoto: photo ?? null }),
     })
     await refreshAttendance()
     await refreshEmployees()
     await refreshActivities()
   }, [refreshAttendance, refreshEmployees, refreshActivities])
 
-  const checkOut = useCallback(async (employeeId: string) => {
+  const checkOut = useCallback(async (employeeId: string, photo?: string | null) => {
     await apiFetch("/api/attendance", {
       method: "POST",
-      body: JSON.stringify({ action: "checkOut", employeeId }),
+      body: JSON.stringify({ action: "checkOut", employeeId, checkOutPhoto: photo ?? null }),
     })
     await refreshAttendance()
     await refreshActivities()

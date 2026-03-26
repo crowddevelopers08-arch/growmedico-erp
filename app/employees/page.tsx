@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import { Plus, Search, MoreHorizontal, ArrowUpDown, Filter, Download, Trash2 } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -160,21 +160,21 @@ function EmployeesPageContent() {
   return (
     <>
       {/* Page Title */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Employees</h1>
           <p className="text-sm text-muted-foreground">
             Manage your team members and their information.
           </p>
         </div>
-        <Button onClick={handleAddEmployee}>
+        <Button onClick={handleAddEmployee} className="sm:shrink-0">
           <Plus className="mr-2 size-4" />
           Add Employee
         </Button>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
         <Card className="border-border/50">
           <CardContent className="pt-6">
             <div className="text-2xl font-semibold">{employees.length}</div>
@@ -210,16 +210,16 @@ function EmployeesPageContent() {
       {/* Employee Table */}
       <Card className="border-border/50">
         <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">All Employees</CardTitle>
-          <CardAction>
-            <div className="flex items-center gap-2">
-              <div className="relative">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="text-base font-semibold">All Employees</CardTitle>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search employees..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-64"
+                  className="pl-9 w-full sm:w-52"
                 />
               </div>
               <DropdownMenu>
@@ -266,9 +266,10 @@ function EmployeesPageContent() {
                 Export
               </Button>
             </div>
-          </CardAction>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -377,6 +378,7 @@ function EmployeesPageContent() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 

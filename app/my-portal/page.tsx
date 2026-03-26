@@ -16,6 +16,7 @@ import {
   Calendar,
   Camera,
 } from "lucide-react"
+import { CameraPunchDialog } from "@/components/camera-punch-dialog"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -78,6 +79,8 @@ function MyPortalContent() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraAction, setCameraAction] = useState<"in" | "out">("in")
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
   const [leaveType, setLeaveType] = useState<LeaveType>("Vacation")
   const [startDate, setStartDate] = useState<Date>()
@@ -129,11 +132,18 @@ function MyPortalContent() {
   }, [approvedRequests])
 
   const handleCheckIn = () => {
-    checkIn(CURRENT_EMPLOYEE_ID)
+    setCameraAction("in")
+    setCameraOpen(true)
   }
 
   const handleCheckOut = () => {
-    checkOut(CURRENT_EMPLOYEE_ID)
+    setCameraAction("out")
+    setCameraOpen(true)
+  }
+
+  const handleCameraConfirm = (photo: string | null) => {
+    if (cameraAction === "in") checkIn(CURRENT_EMPLOYEE_ID, photo)
+    else checkOut(CURRENT_EMPLOYEE_ID, photo)
   }
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,7 +212,6 @@ function MyPortalContent() {
   }
 
   const isCheckedIn = todayAttendance?.checkIn && !todayAttendance?.checkOut
-  const hasCheckedOut = todayAttendance?.checkOut
 
   if (!currentEmployee) {
     return <div>Employee not found</div>
@@ -300,7 +309,7 @@ function MyPortalContent() {
       </Card>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
         <Card className="border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -477,6 +486,14 @@ function MyPortalContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Camera Punch Dialog */}
+      <CameraPunchDialog
+        open={cameraOpen}
+        onOpenChange={setCameraOpen}
+        action={cameraAction}
+        onConfirm={handleCameraConfirm}
+      />
 
       {/* Leave Request Dialog */}
       <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>

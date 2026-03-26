@@ -45,17 +45,19 @@ model Employee {
 }
 
 model Attendance {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date       String
-  checkIn    String?
-  checkOut   String?
-  status     String
-  workHours  Float    @default(0)
-  overtime   Float    @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date          String
+  checkIn       String?
+  checkOut      String?
+  checkInPhoto  String?
+  checkOutPhoto String?
+  status        String
+  workHours     Float    @default(0)
+  overtime      Float    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([employeeId, date])
 }
