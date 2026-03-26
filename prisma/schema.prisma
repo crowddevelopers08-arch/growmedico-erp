@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  role          String    @default("EMPLOYEE")
+  employeeId    String?   @unique
+  employee      Employee? @relation(fields: [employeeId], references: [id])
+  notifications Json?
+  preferences   Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Employee {
+  id               String         @id @default(cuid())
+  name             String
+  email            String         @unique
+  phone            String
+  avatar           String?
+  initials         String
+  department       String
+  role             String
+  status           String         @default("present")
+  joinDate         String
+  salary           Float
+  address          String
+  emergencyContact String
+  dateOfBirth      String
+  user             User?
+  attendance       Attendance[]
+  leaveRequests    LeaveRequest[]
+  salaryRecords    SalaryRecord[]
+  activities       Activity[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       String
+  checkIn    String?
+  checkOut   String?
+  status     String
+  workHours  Float    @default(0)
+  overtime   Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, date])
+}
+
+model LeaveRequest {
+  id              String   @id @default(cuid())
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type            String
+  startDate       String
+  endDate         String
+  days            Int
+  reason          String
+  status          String   @default("pending")
+  appliedOn       String
+  approvedBy      String?
+  approvedOn      String?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SalaryRecord {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  month      String
+  year       Int
+  baseSalary Float
+  bonus      Float    @default(0)
+  deductions Float    @default(0)
+  overtime   Float    @default(0)
+  netSalary  Float
+  status     String   @default("pending")
+  paidOn     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, month, year])
+}
+
+model Activity {
+  id          String    @id @default(cuid())
+  type        String
+  action      String
+  description String
+  employeeId  String?
+  employee    Employee? @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime  @default(now())
+}
+
+model CompanySettings {
+  id         String   @id @default("global")
+  name       String   @default("")
+  email      String   @default("")
+  phone      String   @default("")
+  address    String   @default("")
+  website    String   @default("")
+  timezone   String   @default("Asia/Kolkata")
+  dateFormat String   @default("DD/MM/YYYY")
+  currency   String   @default("INR")
+  updatedAt  DateTime @updatedAt
+}
