@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { CalendarIcon, Clock, LogIn, LogOut, Search, ChevronLeft, ChevronRight, Users, ImageOff } from "lucide-react"
+import { CalendarIcon, Clock, LogIn, LogOut, Search, ChevronLeft, ChevronRight, Users, ImageOff, Download } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,7 +19,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -54,6 +58,12 @@ function AttendancePageContent() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [searchQuery, setSearchQuery] = useState("")
   const [photoPreview, setPhotoPreview] = useState<{ src: string; label: string } | null>(null)
+  const [downloadOpen, setDownloadOpen] = useState(false)
+  const [dlEmployeeId, setDlEmployeeId] = useState("")
+  const [dlMonth, setDlMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}`
+  })
 
   const dateStr = selectedDate.toISOString().split("T")[0]
   const todayStr = new Date().toISOString().split("T")[0]
@@ -131,6 +141,11 @@ function AttendancePageContent() {
             Track and manage employee attendance records.
           </p>
         </div>
+        {isAdmin && (
+          <Button variant="outline" size="sm" onClick={() => setDownloadOpen(true)}>
+            <Download className="mr-2 size-4" />Download Report
+          </Button>
+        )}
       </div>
 
       {/* Date Selector */}
@@ -406,6 +421,50 @@ function AttendancePageContent() {
               className="w-full object-cover"
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Download Report Dialog */}
+      <Dialog open={downloadOpen} onOpenChange={setDownloadOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Download Attendance Report</DialogTitle>
+            <DialogDescription>Select an employee and month to export their attendance as CSV.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-2">
+              <Label>Employee</Label>
+              <Select value={dlEmployeeId} onValueChange={setDlEmployeeId}>
+                <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Month</Label>
+              <input
+                type="month"
+                value={dlMonth}
+                onChange={(e) => setDlMonth(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDownloadOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!dlEmployeeId || !dlMonth}
+              onClick={() => {
+                window.open(`/api/attendance/export?employeeId=${dlEmployeeId}&month=${dlMonth}`, "_blank")
+                setDownloadOpen(false)
+              }}
+            >
+              <Download className="mr-2 size-4" />Download CSV
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

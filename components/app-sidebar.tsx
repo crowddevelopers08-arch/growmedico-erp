@@ -10,6 +10,8 @@ import {
   LogOut,
   ChevronDown,
   UserCircle,
+  ClipboardList,
+  MessageSquare,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -44,12 +46,16 @@ const adminNavItems = [
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
   { title: "Salary", href: "/salary", icon: DollarSign },
+  { title: "Tasks", href: "/tasks", icon: ClipboardList },
+  { title: "Chat", href: "/chat", icon: MessageSquare },
 ]
 
 const employeeNavItems = [
   { title: "My Portal", href: "/my-portal", icon: UserCircle },
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
+  { title: "Tasks", href: "/tasks", icon: ClipboardList },
+  { title: "Chat", href: "/chat", icon: MessageSquare },
 ]
 
 export function AppSidebar() {

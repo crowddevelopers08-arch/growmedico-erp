@@ -1,0 +1,77 @@
+import { NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { pushNotification } from "@/lib/notifications"
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id: channelId } = await params
+  const { searchParams } = new URL(req.url)
+  const after = searchParams.get("after")
+
+  const messages = await prisma.message.findMany({
+    where: {
+      channelId,
+      ...(after ? { createdAt: { gt: new Date(after) } } : {}),
+    },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+  })
+  return NextResponse.json(messages)
+}
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id: channelId } = await params
+  const body = await req.json()
+  const { content, audioContent, attachments, mentions } = body
+
+  const hasContent = content?.trim() || audioContent || (attachments && attachments.length > 0)
+  if (!hasContent) return NextResponse.json({ error: "Message content required" }, { status: 400 })
+
+  const employee = session.user.employeeId
+    ? await prisma.employee.findUnique({ where: { id: session.user.employeeId } })
+    : null
+
+  const senderName = employee?.name ?? session.user.name ?? session.user.email ?? "Unknown"
+  const senderAvatar = employee?.avatar ?? null
+
+  const message = await prisma.message.create({
+    data: {
+      channelId,
+      senderId: session.user.id,
+      senderName,
+      senderAvatar,
+      content: content?.trim() ?? "",
+      audioContent: audioContent ?? null,
+      attachments: attachments ?? undefined,
+      mentions: mentions ?? [],
+    },
+  })
+
+  if (mentions && mentions.length > 0) {
+    const channel = await prisma.channel.findUnique({ where: { id: channelId } })
+    const preview = content?.trim()
+      ? content.trim().slice(0, 80)
+      : audioContent
+      ? "[Voice message]"
+      : "[Attachment]"
+    for (const userId of mentions as string[]) {
+      if (userId !== session.user.id) {
+        await pushNotification(userId, {
+          type: "mention",
+          title: `Mentioned in #${channel?.name ?? "channel"}`,
+          message: `${senderName}: ${preview}`,
+          link: `/chat`,
+        }).catch(() => {})
+      }
+    }
+  }
+
+  return NextResponse.json(message)
+}

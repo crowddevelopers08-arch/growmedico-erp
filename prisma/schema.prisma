@@ -40,6 +40,7 @@ model Employee {
   leaveRequests    LeaveRequest[]
   salaryRecords    SalaryRecord[]
   activities       Activity[]
+  tasks            Task[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 }
@@ -107,6 +108,60 @@ model Activity {
   employeeId  String?
   employee    Employee? @relation(fields: [employeeId], references: [id])
   createdAt   DateTime  @default(now())
+}
+
+model Task {
+  id           String        @id @default(cuid())
+  title        String
+  description  String?
+  assignedToId String
+  assignedTo   Employee      @relation(fields: [assignedToId], references: [id], onDelete: Cascade)
+  assignedById String
+  priority     String        @default("medium")
+  status       String        @default("pending")
+  dueDate      String?
+  comments     TaskComment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model TaskComment {
+  id           String    @id @default(cuid())
+  taskId       String
+  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  senderId     String
+  senderName   String
+  senderAvatar String?
+  content      String    @default("")
+  audioContent String?
+  attachments  Json?
+  mentions     String[]
+  editedAt     DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model Channel {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  createdById String
+  messages    Message[]
+  createdAt   DateTime  @default(now())
+}
+
+model Message {
+  id           String    @id @default(cuid())
+  channelId    String
+  channel      Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  senderId     String
+  senderName   String
+  senderAvatar String?
+  content      String    @default("")
+  audioContent String?
+  attachments  Json?
+  mentions     String[]
+  editedAt     DateTime?
+  createdAt    DateTime  @default(now())
 }
 
 model CompanySettings {

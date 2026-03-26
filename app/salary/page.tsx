@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, DollarSign, TrendingUp, CreditCard, FileText, Download, Filter, Eye } from "lucide-react"
+import { Search, IndianRupee, TrendingUp, CreditCard, FileText, Download, Filter, Eye } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -110,9 +110,9 @@ function SalaryPageContent() {
   }, [salaryRecords, selectedMonth, selectedYear])
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
@@ -174,7 +174,7 @@ function SalaryPageContent() {
                 <p className="text-xs text-muted-foreground">{selectedMonth} {selectedYear}</p>
               </div>
               <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                <DollarSign className="size-5 text-primary" />
+                <IndianRupee className="size-5 text-primary" />
               </div>
             </div>
           </CardContent>
