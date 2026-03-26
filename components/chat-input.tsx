@@ -76,7 +76,7 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
       if (!mentionState) return
       const before = content.slice(0, mentionState.start)
       const after = content.slice(mentionState.start + 1 + mentionState.query.length)
-      setContent(`${before}<@${user.userId}|${user.name}> ${after}`)
+      setContent(`${before}@[${user.name}] ${after}`)
       setMentionIds((prev) => (prev.includes(user.userId) ? prev : [...prev, user.userId]))
       setMentionState(null)
       setTimeout(() => textareaRef.current?.focus(), 0)
