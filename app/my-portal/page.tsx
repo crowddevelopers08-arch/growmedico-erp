@@ -50,6 +50,14 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { useHR } from "@/lib/hr-context"
 import { useSession } from "next-auth/react"
+
+function to12h(time: string | null | undefined): string {
+  if (!time) return ""
+  const [h, m] = time.split(":").map(Number)
+  const ampm = h >= 12 ? "PM" : "AM"
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`
+}
 import type { LeaveType } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -284,7 +292,7 @@ function MyPortalContent() {
                 <div className="w-full space-y-2">
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Clock className="size-4 text-emerald-500" />
-                    <span>Checked in at {todayAttendance.checkIn}</span>
+                    <span>Checked in at {to12h(todayAttendance.checkIn)}</span>
                   </div>
                   <Button onClick={handleCheckOut} size="lg" variant="outline" className="w-full gap-2">
                     <LogOut className="size-4" />
@@ -294,8 +302,8 @@ function MyPortalContent() {
               ) : (
                 <div className="w-full space-y-2 text-center">
                   <div className="flex items-center justify-center gap-4 text-sm">
-                    <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{todayAttendance.checkIn}</span></span>
-                    <span className="text-muted-foreground">Out: <span className="text-foreground font-medium">{todayAttendance.checkOut}</span></span>
+                    <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{to12h(todayAttendance.checkIn)}</span></span>
+                    <span className="text-muted-foreground">Out: <span className="text-foreground font-medium">{to12h(todayAttendance.checkOut)}</span></span>
                   </div>
                   <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">
                     <CheckCircle2 className="size-3 mr-1" />

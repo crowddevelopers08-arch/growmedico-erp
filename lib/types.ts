@@ -1,4 +1,4 @@
-export type EmployeeStatus = "present" | "absent" | "onLeave" | "remote"
+export type EmployeeStatus = "present" | "absent" | "onLeave" | "remote" | "late"
 
 export type LeaveType = "Vacation" | "Sick Leave" | "WFH" | "Personal" | "Maternity" | "Paternity"
 

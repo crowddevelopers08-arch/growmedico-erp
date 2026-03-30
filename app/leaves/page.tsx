@@ -79,6 +79,8 @@ const getLeaveTypeBadge = (type: LeaveType) => {
 function LeavesPageContent() {
   const { leaveRequests, employees, updateLeaveStatus, getEmployee } = useHR()
   const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
+  const currentEmployeeId = session?.user?.employeeId
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTypes, setSelectedTypes] = useState<LeaveType[]>([])
   const [activeTab, setActiveTab] = useState<LeaveStatus | "all">("all")
@@ -87,14 +89,19 @@ function LeavesPageContent() {
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null)
   const [rejectionReason, setRejectionReason] = useState("")
 
+  const visibleRequests = useMemo(() => {
+    if (isAdmin) return leaveRequests
+    return leaveRequests.filter((r) => r.employeeId === currentEmployeeId)
+  }, [leaveRequests, isAdmin, currentEmployeeId])
+
   const filteredRequests = useMemo(() => {
-    let result = [...leaveRequests]
-    
+    let result = [...visibleRequests]
+
     // Filter by tab
     if (activeTab !== "all") {
       result = result.filter((r) => r.status === activeTab)
     }
-    
+
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -107,24 +114,24 @@ function LeavesPageContent() {
         )
       })
     }
-    
+
     // Filter by leave type
     if (selectedTypes.length > 0) {
       result = result.filter((r) => selectedTypes.includes(r.type))
     }
-    
+
     // Sort by date (newest first)
     result.sort((a, b) => new Date(b.appliedOn).getTime() - new Date(a.appliedOn).getTime())
-    
+
     return result
-  }, [leaveRequests, activeTab, searchQuery, selectedTypes, getEmployee])
+  }, [visibleRequests, activeTab, searchQuery, selectedTypes, getEmployee])
 
   const stats = useMemo(() => ({
-    total: leaveRequests.length,
-    pending: leaveRequests.filter((r) => r.status === "pending").length,
-    approved: leaveRequests.filter((r) => r.status === "approved").length,
-    rejected: leaveRequests.filter((r) => r.status === "rejected").length,
-  }), [leaveRequests])
+    total: visibleRequests.length,
+    pending: visibleRequests.filter((r) => r.status === "pending").length,
+    approved: visibleRequests.filter((r) => r.status === "approved").length,
+    rejected: visibleRequests.filter((r) => r.status === "rejected").length,
+  }), [visibleRequests])
 
   const handleApprove = (request: LeaveRequest) => {
     updateLeaveStatus(request.id, "approved", session?.user?.id)
@@ -160,7 +167,7 @@ function LeavesPageContent() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Leave Requests</h1>
           <p className="text-sm text-muted-foreground">
-            Manage and approve employee leave requests.
+            {isAdmin ? "Manage and approve employee leave requests." : "View and manage your leave requests."}
           </p>
         </div>
         <Button onClick={() => setDialogOpen(true)} className="sm:shrink-0">
@@ -308,13 +315,13 @@ function LeavesPageContent() {
                 <TableHead>Reason</TableHead>
                 <TableHead>Applied On</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-24">Actions</TableHead>
+                {isAdmin && <TableHead className="w-24">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRequests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={isAdmin ? 8 : 7} className="h-24 text-center text-muted-foreground">
                     No leave requests found.
                   </TableCell>
                 </TableRow>
@@ -351,40 +358,42 @@ function LeavesPageContent() {
                         {formatDate(request.appliedOn)}
                       </TableCell>
                       <TableCell>{getStatusBadge(request.status)}</TableCell>
-                      <TableCell>
-                        {request.status === "pending" && (
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="size-8 text-muted-foreground hover:text-success hover:bg-success/10"
-                              onClick={() => handleApprove(request)}
-                            >
-                              <Check className="size-4" />
-                              <span className="sr-only">Approve</span>
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleRejectClick(request)}
-                            >
-                              <X className="size-4" />
-                              <span className="sr-only">Reject</span>
-                            </Button>
-                          </div>
-                        )}
-                        {request.status === "approved" && request.approvedOn && (
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(request.approvedOn)}
-                          </span>
-                        )}
-                        {request.status === "rejected" && request.rejectionReason && (
-                          <span className="text-xs text-destructive truncate max-w-20" title={request.rejectionReason}>
-                            {request.rejectionReason}
-                          </span>
-                        )}
-                      </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          {request.status === "pending" && (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-8 text-muted-foreground hover:text-success hover:bg-success/10"
+                                onClick={() => handleApprove(request)}
+                              >
+                                <Check className="size-4" />
+                                <span className="sr-only">Approve</span>
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleRejectClick(request)}
+                              >
+                                <X className="size-4" />
+                                <span className="sr-only">Reject</span>
+                              </Button>
+                            </div>
+                          )}
+                          {request.status === "approved" && request.approvedOn && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(request.approvedOn)}
+                            </span>
+                          )}
+                          {request.status === "rejected" && request.rejectionReason && (
+                            <span className="text-xs text-destructive truncate max-w-20" title={request.rejectionReason}>
+                              {request.rejectionReason}
+                            </span>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   )
                 })

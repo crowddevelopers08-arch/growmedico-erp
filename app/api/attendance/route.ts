@@ -3,6 +3,19 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+// Office hours: 10:00 AM – 7:00 PM (9-hour work day)
+// Late threshold: check-in after 10:30 AM
+const LATE_HOUR = 10
+const LATE_MINUTE = 30
+const OFFICE_HOURS = 9 // standard work day in hours
+
+function to12h(time: string) {
+  const [h, m] = time.split(":").map(Number)
+  const ampm = h >= 12 ? "PM" : "AM"
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -31,33 +44,38 @@ export async function POST(req: NextRequest) {
 
   const today = new Date().toISOString().split("T")[0]
   const now = new Date()
-  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+  const hours = now.getHours()
+  const minutes = now.getMinutes()
+  const time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
 
   const employee = await prisma.employee.findUnique({ where: { id: employeeId } })
   if (!employee) return NextResponse.json({ error: "Employee not found" }, { status: 404 })
 
   if (action === "checkIn") {
+    const isLate = hours > LATE_HOUR || (hours === LATE_HOUR && minutes > LATE_MINUTE)
+    const checkInStatus = isLate ? "late" : "present"
+
     const record = await prisma.attendance.upsert({
       where: { employeeId_date: { employeeId, date: today } },
-      update: { checkIn: time, status: "present", checkInPhoto: checkInPhoto ?? null },
+      update: { checkIn: time, status: checkInStatus, checkInPhoto: checkInPhoto ?? null },
       create: {
         employeeId,
         date: today,
         checkIn: time,
         checkOut: null,
         checkInPhoto: checkInPhoto ?? null,
-        status: "present",
+        status: checkInStatus,
         workHours: 0,
         overtime: 0,
       },
     })
 
-    await prisma.employee.update({ where: { id: employeeId }, data: { status: "present" } })
+    await prisma.employee.update({ where: { id: employeeId }, data: { status: isLate ? "present" : "present" } })
     await prisma.activity.create({
       data: {
         type: "attendance",
-        action: "Check In",
-        description: `${employee.name} checked in at ${time}`,
+        action: isLate ? "Late Check In" : "Check In",
+        description: `${employee.name} checked in at ${to12h(time)}${isLate ? " (Late)" : ""}`,
         employeeId,
       },
     })
@@ -84,7 +102,7 @@ export async function POST(req: NextRequest) {
         checkOut: time,
         checkOutPhoto: checkOutPhoto ?? null,
         workHours: Math.round(workHours * 10) / 10,
-        overtime: Math.max(0, Math.round((workHours - 8) * 10) / 10),
+        overtime: Math.max(0, Math.round((workHours - OFFICE_HOURS) * 10) / 10),
       },
     })
 
@@ -92,7 +110,7 @@ export async function POST(req: NextRequest) {
       data: {
         type: "attendance",
         action: "Check Out",
-        description: `${employee.name} checked out at ${time}`,
+        description: `${employee.name} checked out at ${to12h(time)}`,
         employeeId,
       },
     })

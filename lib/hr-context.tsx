@@ -16,6 +16,7 @@ interface HRContextType {
   attendance: Attendance[]
   checkIn: (employeeId: string, photo?: string | null) => Promise<void>
   checkOut: (employeeId: string, photo?: string | null) => Promise<void>
+  updateAttendance: (id: string, checkIn: string, checkOut: string | null) => Promise<void>
   getAttendanceByDate: (date: string) => Attendance[]
   getAttendanceByEmployee: (employeeId: string) => Attendance[]
   refreshAttendance: () => Promise<void>
@@ -158,6 +159,15 @@ export function HRProvider({ children }: { children: ReactNode }) {
     await refreshActivities()
   }, [refreshAttendance, refreshActivities])
 
+  const updateAttendance = useCallback(async (id: string, checkIn: string, checkOut: string | null) => {
+    await apiFetch(`/api/attendance/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ checkIn, checkOut }),
+    })
+    await refreshAttendance()
+    await refreshActivities()
+  }, [refreshAttendance, refreshActivities])
+
   const getAttendanceByDate = useCallback((date: string) => {
     return attendance.filter((a) => a.date === date)
   }, [attendance])
@@ -238,6 +248,7 @@ export function HRProvider({ children }: { children: ReactNode }) {
         attendance,
         checkIn,
         checkOut,
+        updateAttendance,
         getAttendanceByDate,
         getAttendanceByEmployee,
         refreshAttendance,
