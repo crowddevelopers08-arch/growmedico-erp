@@ -8,10 +8,50 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const employees = await prisma.employee.findMany({
-    orderBy: { createdAt: "asc" },
+  const today = new Date().toISOString().split("T")[0]
+
+  const [employees, todayAttendance, approvedLeavesToday] = await Promise.all([
+    prisma.employee.findMany({
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.attendance.findMany({
+      where: { date: today },
+      select: { employeeId: true, status: true },
+    }),
+    prisma.leaveRequest.findMany({
+      where: {
+        status: "approved",
+        startDate: { lte: today },
+        endDate: { gte: today },
+      },
+      select: { employeeId: true },
+    }),
+  ])
+
+  const attendanceByEmployee = new Map(todayAttendance.map((a) => [a.employeeId, a.status]))
+  const leaveEmployeeIds = new Set(approvedLeavesToday.map((l) => l.employeeId))
+
+  const employeesWithLiveStatus = employees.map((employee) => {
+    if (leaveEmployeeIds.has(employee.id)) {
+      return { ...employee, status: "onLeave" as const }
+    }
+
+    const attendanceStatus = attendanceByEmployee.get(employee.id)
+    if (attendanceStatus === "remote") {
+      return { ...employee, status: "remote" as const }
+    }
+    if (attendanceStatus === "present" || attendanceStatus === "late") {
+      return { ...employee, status: "present" as const }
+    }
+    if (attendanceStatus === "absent") {
+      return { ...employee, status: "absent" as const }
+    }
+
+    // No attendance record for today means absent for today's employee view.
+    return { ...employee, status: "absent" as const }
   })
-  return NextResponse.json(employees)
+
+  return NextResponse.json(employeesWithLiveStatus)
 }
 
 export async function POST(req: NextRequest) {

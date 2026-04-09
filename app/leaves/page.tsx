@@ -42,7 +42,7 @@ import { useHR } from "@/lib/hr-context"
 import { LeaveRequestDialog } from "@/components/leave-request-dialog"
 import type { LeaveRequest, LeaveStatus, LeaveType } from "@/lib/types"
 
-const leaveTypes: LeaveType[] = ["Vacation", "Sick Leave", "WFH", "Personal", "Maternity", "Paternity"]
+const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"]
 
 const getStatusBadge = (status: LeaveStatus) => {
   switch (status) {
@@ -59,18 +59,14 @@ const getStatusBadge = (status: LeaveStatus) => {
 
 const getLeaveTypeBadge = (type: LeaveType) => {
   switch (type) {
-    case "Vacation":
-      return <Badge variant="secondary" className="bg-chart-1/10 text-chart-1 border-0">Vacation</Badge>
+    case "Casual Leave":
+      return <Badge variant="secondary" className="bg-chart-1/10 text-chart-1 border-0">Casual Leave</Badge>
+    case "Privilege Leave":
+      return <Badge variant="secondary" className="bg-chart-5/10 text-chart-5 border-0">Privilege Leave</Badge>
     case "Sick Leave":
       return <Badge variant="secondary" className="bg-destructive/10 text-destructive border-0">Sick Leave</Badge>
-    case "WFH":
-      return <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 border-0">WFH</Badge>
-    case "Personal":
-      return <Badge variant="secondary" className="bg-chart-5/10 text-chart-5 border-0">Personal</Badge>
-    case "Maternity":
-      return <Badge variant="secondary" className="bg-chart-3/10 text-chart-3 border-0">Maternity</Badge>
-    case "Paternity":
-      return <Badge variant="secondary" className="bg-chart-4/10 text-chart-4 border-0">Paternity</Badge>
+    case "Work From Home":
+      return <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 border-0">Work From Home</Badge>
     default:
       return <Badge variant="secondary">{type}</Badge>
   }
@@ -167,7 +163,7 @@ function LeavesPageContent() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Leave Requests</h1>
           <p className="text-sm text-muted-foreground">
-            {isAdmin ? "Manage and approve employee leave requests." : "View and manage your leave requests."}
+            {isAdmin ? "Manage and approve employee leave requests." : "View and manage your leave requests. Casual: 6, Privilege: 6, Sick: 12, Work From Home: 6 per quarter."}
           </p>
         </div>
         <Button onClick={() => setDialogOpen(true)} className="sm:shrink-0">

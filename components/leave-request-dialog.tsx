@@ -30,7 +30,7 @@ import { useHR } from "@/lib/hr-context"
 import type { LeaveType } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-const leaveTypes: LeaveType[] = ["Vacation", "Sick Leave", "WFH", "Personal", "Maternity", "Paternity"]
+const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"]
 
 interface LeaveRequestDialogProps {
   open: boolean
@@ -40,7 +40,7 @@ interface LeaveRequestDialogProps {
 export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogProps) {
   const { employees, addLeaveRequest } = useHR()
   const [employeeId, setEmployeeId] = useState("")
-  const [leaveType, setLeaveType] = useState<LeaveType>("Vacation")
+  const [leaveType, setLeaveType] = useState<LeaveType>("Casual Leave")
   const [startDate, setStartDate] = useState<Date>()
   const [endDate, setEndDate] = useState<Date>()
   const [reason, setReason] = useState("")
@@ -48,7 +48,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
   useEffect(() => {
     if (!open) {
       setEmployeeId("")
-      setLeaveType("Vacation")
+      setLeaveType("Casual Leave")
       setStartDate(undefined)
       setEndDate(undefined)
       setReason("")

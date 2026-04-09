@@ -61,13 +61,13 @@ function to12h(time: string | null | undefined): string {
 import type { LeaveType } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
-const leaveTypes: LeaveType[] = ["Vacation", "Sick Leave", "WFH", "Personal", "Maternity", "Paternity"]
+const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"]
 
 const leaveBalanceDefaults = {
-  vacation: { total: 20 },
+  casualLeave: { total: 6 },
+  privilegeLeave: { total: 6 },
   sickLeave: { total: 12 },
-  personal: { total: 5 },
-  wfh: { total: 24 },
+  workFromHome: { total: 24, quarterlyLimit: 6 },
 }
 
 function MyPortalContent() {
@@ -90,7 +90,7 @@ function MyPortalContent() {
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraAction, setCameraAction] = useState<"in" | "out">("in")
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
-  const [leaveType, setLeaveType] = useState<LeaveType>("Vacation")
+  const [leaveType, setLeaveType] = useState<LeaveType>("Casual Leave")
   const [startDate, setStartDate] = useState<Date>()
   const [endDate, setEndDate] = useState<Date>()
   const [reason, setReason] = useState("")
@@ -126,16 +126,16 @@ function MyPortalContent() {
       return year === new Date().getFullYear()
     })
     
-    const usedVacation = approved.filter(r => r.type === "Vacation").reduce((sum, r) => sum + r.days, 0)
+    const usedCasual = approved.filter(r => r.type === "Casual Leave").reduce((sum, r) => sum + r.days, 0)
+    const usedPrivilege = approved.filter(r => r.type === "Privilege Leave").reduce((sum, r) => sum + r.days, 0)
     const usedSick = approved.filter(r => r.type === "Sick Leave").reduce((sum, r) => sum + r.days, 0)
-    const usedPersonal = approved.filter(r => r.type === "Personal").reduce((sum, r) => sum + r.days, 0)
-    const usedWFH = approved.filter(r => r.type === "WFH").reduce((sum, r) => sum + r.days, 0)
+    const usedWFH = approved.filter(r => r.type === "Work From Home").reduce((sum, r) => sum + r.days, 0)
 
     return {
-      vacation: { total: leaveBalanceDefaults.vacation.total, used: usedVacation },
+      casualLeave: { total: leaveBalanceDefaults.casualLeave.total, used: usedCasual },
+      privilegeLeave: { total: leaveBalanceDefaults.privilegeLeave.total, used: usedPrivilege },
       sickLeave: { total: leaveBalanceDefaults.sickLeave.total, used: usedSick },
-      personal: { total: leaveBalanceDefaults.personal.total, used: usedPersonal },
-      wfh: { total: leaveBalanceDefaults.wfh.total, used: usedWFH },
+      workFromHome: { total: leaveBalanceDefaults.workFromHome.total, used: usedWFH, quarterlyLimit: leaveBalanceDefaults.workFromHome.quarterlyLimit },
     }
   }, [approvedRequests])
 
@@ -194,7 +194,7 @@ function MyPortalContent() {
     })
     
     setLeaveDialogOpen(false)
-    setLeaveType("Vacation")
+    setLeaveType("Casual Leave")
     setStartDate(undefined)
     setEndDate(undefined)
     setReason("")
@@ -389,10 +389,18 @@ function MyPortalContent() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Vacation</span>
-                <span className="font-medium">{leaveBalance.vacation.total - leaveBalance.vacation.used} / {leaveBalance.vacation.total}</span>
+                <span className="text-muted-foreground">Casual Leave</span>
+                <span className="font-medium">{leaveBalance.casualLeave.total - leaveBalance.casualLeave.used} / {leaveBalance.casualLeave.total}</span>
               </div>
-              <Progress value={((leaveBalance.vacation.total - leaveBalance.vacation.used) / leaveBalance.vacation.total) * 100} className="h-2" />
+              <Progress value={((leaveBalance.casualLeave.total - leaveBalance.casualLeave.used) / leaveBalance.casualLeave.total) * 100} className="h-2" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Privilege Leave</span>
+                <span className="font-medium">{leaveBalance.privilegeLeave.total - leaveBalance.privilegeLeave.used} / {leaveBalance.privilegeLeave.total}</span>
+              </div>
+              <Progress value={((leaveBalance.privilegeLeave.total - leaveBalance.privilegeLeave.used) / leaveBalance.privilegeLeave.total) * 100} className="h-2" />
             </div>
 
             <div className="space-y-2">
@@ -405,18 +413,11 @@ function MyPortalContent() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Personal</span>
-                <span className="font-medium">{leaveBalance.personal.total - leaveBalance.personal.used} / {leaveBalance.personal.total}</span>
-              </div>
-              <Progress value={((leaveBalance.personal.total - leaveBalance.personal.used) / leaveBalance.personal.total) * 100} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Work From Home</span>
-                <span className="font-medium">{leaveBalance.wfh.total - leaveBalance.wfh.used} / {leaveBalance.wfh.total}</span>
+                <span className="font-medium">{leaveBalance.workFromHome.total - leaveBalance.workFromHome.used} / {leaveBalance.workFromHome.total}</span>
               </div>
-              <Progress value={((leaveBalance.wfh.total - leaveBalance.wfh.used) / leaveBalance.wfh.total) * 100} className="h-2" />
+              <Progress value={((leaveBalance.workFromHome.total - leaveBalance.workFromHome.used) / leaveBalance.workFromHome.total) * 100} className="h-2" />
+              <p className="text-xs text-muted-foreground">6 days allowed per 3-month period</p>
             </div>
           </CardContent>
         </Card>

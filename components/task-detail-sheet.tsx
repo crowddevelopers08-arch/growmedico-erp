@@ -37,6 +37,33 @@ interface TaskDetailSheetProps {
   onEditTask?: (task: Task) => void
 }
 
+function PersonCard({
+  label,
+  name,
+  avatar,
+}: {
+  label: string
+  name?: string | null
+  avatar?: string | null
+}) {
+  const fallback = (name ?? "NA").slice(0, 2).toUpperCase()
+
+  return (
+    <div className="min-w-0 rounded-xl border border-border/50 bg-muted/30 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <div className="mt-2 flex items-center gap-3">
+        <Avatar className="size-12">
+          <AvatarImage src={avatar ?? undefined} />
+          <AvatarFallback>{fallback}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{name ?? "Unknown"}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const priorityConfig: Record<TaskPriority, { label: string; class: string }> = {
   low:    { label: "Low",    class: "bg-slate-500/10 text-slate-500 border-slate-500/20" },
   medium: { label: "Medium", class: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
@@ -199,6 +226,14 @@ export function TaskDetailSheet({
   const StatusIcon = statusConfig[task.status].icon
   const isOverdue = task.dueDate && task.status !== "completed" && task.status !== "cancelled" && new Date(task.dueDate) < new Date()
   const currentUserId = session?.user?.id
+  const projectName = task.clientName && task.projectName
+    ? `${task.clientName} - ${task.projectName}`
+    : task.projectName ?? null
+  const assigner = mentionUsers.find((user) =>
+    user.userId === task.assignedById || user.employeeId === task.assignedById
+  )
+  const assignerName = task.assignedByName ?? assigner?.name
+  const assignerAvatar = task.assignedByAvatar ?? assigner?.avatar
 
   return (
     <>
@@ -225,6 +260,11 @@ export function TaskDetailSheet({
             </div>
 
             <div className="flex flex-wrap gap-2 mt-3">
+              {projectName && (
+                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                  Project: {projectName}
+                </Badge>
+              )}
               <Badge variant="outline" className={`text-xs gap-1 ${priorityConfig[task.priority].class}`}>
                 {priorityConfig[task.priority].label}
               </Badge>
@@ -234,15 +274,13 @@ export function TaskDetailSheet({
               {isOverdue && <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20">Overdue</Badge>}
             </div>
 
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <PersonCard label="Created By" name={assignerName} avatar={assignerAvatar} />
+              <PersonCard label="Assigner" name={assignerName} avatar={assignerAvatar} />
+              <PersonCard label="Assignee" name={employeeName ?? "Unassigned"} avatar={employeeAvatar} />
+            </div>
+
             <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <User className="size-3.5" />
-                <Avatar className="size-4">
-                  <AvatarImage src={employeeAvatar} />
-                  <AvatarFallback className="text-[8px]">{employeeName?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span>{employeeName ?? "Unassigned"}</span>
-              </div>
               {task.dueDate && (
                 <div className={`flex items-center gap-1.5 ${isOverdue ? "text-red-500" : ""}`}>
                   <CalendarIcon className="size-3.5" />

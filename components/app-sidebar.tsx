@@ -12,6 +12,7 @@ import {
   UserCircle,
   ClipboardList,
   MessageSquare,
+  FolderKanban,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -47,6 +48,7 @@ const adminNavItems = [
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
   { title: "Salary", href: "/salary", icon: DollarSign },
   { title: "Tasks", href: "/tasks", icon: ClipboardList },
+  { title: "Projects", href: "/projects", icon: FolderKanban },
   { title: "Chat", href: "/chat", icon: MessageSquare },
 ]
 
@@ -55,6 +57,7 @@ const employeeNavItems = [
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
   { title: "Tasks", href: "/tasks", icon: ClipboardList },
+  { title: "Projects", href: "/projects", icon: FolderKanban },
   { title: "Chat", href: "/chat", icon: MessageSquare },
 ]
 

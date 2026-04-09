@@ -21,15 +21,15 @@ model User {
 }
 
 model Employee {
-  id               String         @id @default(cuid())
+  id               String          @id @default(cuid())
   name             String
-  email            String         @unique
+  email            String          @unique
   phone            String
   avatar           String?
   initials         String
   department       String
   role             String
-  status           String         @default("present")
+  status           String          @default("present")
   joinDate         String
   salary           Float
   address          String
@@ -41,8 +41,9 @@ model Employee {
   salaryRecords    SalaryRecord[]
   activities       Activity[]
   tasks            Task[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  projectMembers   ProjectMember[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 }
 
 model Attendance {
@@ -111,18 +112,51 @@ model Activity {
 }
 
 model Task {
-  id           String        @id @default(cuid())
+  id           String         @id @default(cuid())
   title        String
   description  String?
+  projectId    String?
+  project      ClientProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignedToId String
-  assignedTo   Employee      @relation(fields: [assignedToId], references: [id], onDelete: Cascade)
+  assignedTo   Employee       @relation(fields: [assignedToId], references: [id], onDelete: Cascade)
   assignedById String
-  priority     String        @default("medium")
-  status       String        @default("pending")
+  assignedByName   String?
+  assignedByAvatar String?
+  priority     String         @default("medium")
+  status       String         @default("pending")
+  stage        String         @default("Unstaged Tasks")
   dueDate      String?
   comments     TaskComment[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model ClientProject {
+  id          String          @id @default(cuid())
+  clientName  String
+  name        String
+  description String?
+  status      String          @default("open")
+  priority    String          @default("medium")
+  dueDate     String?
+  createdById String
+  tasks       Task[]
+  members     ProjectMember[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([clientName, name])
+}
+
+model ProjectMember {
+  id         String        @id @default(cuid())
+  projectId  String
+  project    ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@unique([projectId, employeeId])
 }
 
 model TaskComment {
@@ -160,6 +194,7 @@ model Message {
   audioContent String?
   attachments  Json?
   mentions     String[]
+  readBy       String[]  @default([])
   editedAt     DateTime?
   createdAt    DateTime  @default(now())
 }

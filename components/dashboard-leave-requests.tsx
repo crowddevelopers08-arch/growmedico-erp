@@ -12,14 +12,14 @@ import type { LeaveType } from "@/lib/types"
 
 const getLeaveTypeBadge = (type: LeaveType) => {
   switch (type) {
-    case "Vacation":
-      return <Badge variant="secondary" className="bg-chart-1/10 text-chart-1 border-0">Vacation</Badge>
+    case "Casual Leave":
+      return <Badge variant="secondary" className="bg-chart-1/10 text-chart-1 border-0">Casual Leave</Badge>
+    case "Privilege Leave":
+      return <Badge variant="secondary" className="bg-chart-5/10 text-chart-5 border-0">Privilege Leave</Badge>
     case "Sick Leave":
       return <Badge variant="secondary" className="bg-destructive/10 text-destructive border-0">Sick Leave</Badge>
-    case "WFH":
-      return <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 border-0">WFH</Badge>
-    case "Personal":
-      return <Badge variant="secondary" className="bg-chart-5/10 text-chart-5 border-0">Personal</Badge>
+    case "Work From Home":
+      return <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 border-0">Work From Home</Badge>
     default:
       return <Badge variant="secondary">{type}</Badge>
   }

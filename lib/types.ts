@@ -1,6 +1,6 @@
 export type EmployeeStatus = "present" | "absent" | "onLeave" | "remote" | "late"
 
-export type LeaveType = "Vacation" | "Sick Leave" | "WFH" | "Personal" | "Maternity" | "Paternity"
+export type LeaveType = "Casual Leave" | "Privilege Leave" | "Sick Leave" | "Work From Home"
 
 export type LeaveStatus = "pending" | "approved" | "rejected"
 
@@ -67,16 +67,44 @@ export interface SalaryRecord {
 
 export type TaskPriority = "low" | "medium" | "high" | "urgent"
 export type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled"
+export type ProjectStatus = "open" | "in_progress" | "completed" | "on_hold"
 
 export interface Task {
   id: string
   title: string
   description?: string | null
+  projectId?: string | null
+  projectName?: string | null
+  clientName?: string | null
   assignedToId: string
   assignedById: string
+  assignedByName?: string | null
+  assignedByAvatar?: string | null
   priority: TaskPriority
   status: TaskStatus
+  stage?: string | null
   dueDate?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ProjectMember {
+  id: string
+  employeeId: string
+  createdAt?: string
+  employee: Pick<Employee, "id" | "name" | "avatar" | "initials" | "role" | "department">
+}
+
+export interface ClientProject {
+  id: string
+  clientName: string
+  name: string
+  description?: string | null
+  status: ProjectStatus
+  priority: TaskPriority
+  dueDate?: string | null
+  createdById: string
+  members?: ProjectMember[]
   createdAt: string
   updatedAt: string
 }
@@ -120,6 +148,7 @@ export interface Message {
   audioContent?: string | null
   attachments?: Attachment[] | null
   mentions?: string[]
+  readBy?: string[]
   editedAt?: string | null
   createdAt: string
 }

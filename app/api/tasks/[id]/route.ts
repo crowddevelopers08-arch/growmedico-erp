@@ -20,7 +20,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const allowedFields = isAdmin
-    ? { title: body.title, description: body.description, priority: body.priority, status: body.status, dueDate: body.dueDate, assignedToId: body.assignedToId }
+    ? {
+        title: body.title,
+        description: body.description,
+        priority: body.priority,
+        status: body.status,
+        stage: body.stage,
+        dueDate: body.dueDate,
+        assignedToId: body.assignedToId,
+        projectId: body.projectId,
+      }
     : { status: body.status }
 
   const updated = await prisma.task.update({

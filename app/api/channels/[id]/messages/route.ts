@@ -20,6 +20,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     orderBy: { createdAt: "asc" },
     take: 100,
   })
+
+  // Mark messages from others as read by current user.
+  const unreadIds = messages
+    .filter((m) => m.senderId !== session.user.id && !(m.readBy ?? []).includes(session.user.id))
+    .map((m) => m.id)
+
+  if (unreadIds.length > 0) {
+    await Promise.all(
+      unreadIds.map((id) =>
+        prisma.message.update({
+          where: { id },
+          data: { readBy: { push: session.user.id } },
+        }).catch(() => null)
+      )
+    )
+    // Reflect read update in this response too.
+    messages.forEach((m) => {
+      if (unreadIds.includes(m.id)) {
+        m.readBy = [...(m.readBy ?? []), session.user.id]
+      }
+    })
+  }
+
   return NextResponse.json(messages)
 }
 
@@ -51,6 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       audioContent: audioContent ?? null,
       attachments: attachments ?? undefined,
       mentions: mentions ?? [],
+      readBy: [session.user.id],
     },
   })
 
