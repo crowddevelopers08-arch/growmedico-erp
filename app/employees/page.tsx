@@ -41,7 +41,7 @@ import { EmployeeDialog } from "@/components/employee-dialog"
 import { EmployeeDetails } from "@/components/employee-details"
 import type { Employee, Department } from "@/lib/types"
 
-const departments: Department[] = ["Engineering", "Product", "Design", "Marketing", "HR", "Finance", "Sales", "Operations"]
+const departments: Department[] = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO"]
 
 const getStatusBadge = (status: string) => {
   switch (status) {

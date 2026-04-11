@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, CalendarIcon } from "lucide-react"
+import { format, parseISO } from "date-fns"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import {
   Dialog,
   DialogContent,
@@ -14,16 +16,22 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { useHR } from "@/lib/hr-context"
 import type { Employee, Department, EmployeeStatus, AccountRole } from "@/lib/types"
 
-const departments: Department[] = ["Engineering", "Product", "Design", "Marketing", "HR", "Finance", "Sales", "Operations"]
+const departments: Department[] = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO"]
 const statuses: EmployeeStatus[] = ["present", "absent", "onLeave", "remote"]
 const accountRoles: AccountRole[] = ["EMPLOYEE", "MANAGER", "ADMIN"]
 
@@ -43,7 +51,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
     name: "",
     email: "",
     phone: "",
-    department: "Engineering" as Department,
+    department: "Web Developer" as Department,
     role: "",
     accountRole: "EMPLOYEE" as AccountRole,
     status: "present" as EmployeeStatus,
@@ -77,7 +85,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
         name: "",
         email: "",
         phone: "",
-        department: "Engineering",
+        department: "Web Developer",
         role: "",
         accountRole: "EMPLOYEE",
         status: "present",
@@ -290,27 +298,54 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="joinDate">Join Date</Label>
-                <Input
-                  id="joinDate"
-                  type="date"
-                  value={formData.joinDate}
-                  onChange={(e) => setFormData({ ...formData, joinDate: e.target.value })}
-                  required
-                />
+                <Label>Join Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn("w-full justify-start text-left font-normal", !formData.joinDate && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 size-4" />
+                      {formData.joinDate ? format(parseISO(formData.joinDate), "dd MMM yyyy") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.joinDate ? parseISO(formData.joinDate) : undefined}
+                      onSelect={(date) => date && setFormData({ ...formData, joinDate: format(date, "yyyy-MM-dd") })}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                <Input
-                  id="dateOfBirth"
-                  type="date"
-                  value={formData.dateOfBirth}
-                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                  required
-                />
+                <Label>Date of Birth</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn("w-full justify-start text-left font-normal", !formData.dateOfBirth && "text-muted-foreground")}
+                    >
+                      <CalendarIcon className="mr-2 size-4" />
+                      {formData.dateOfBirth ? format(parseISO(formData.dateOfBirth), "dd MMM yyyy") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.dateOfBirth ? parseISO(formData.dateOfBirth) : undefined}
+                      onSelect={(date) => date && setFormData({ ...formData, dateOfBirth: format(date, "yyyy-MM-dd") })}
+                      captionLayout="dropdown"
+                      startMonth={new Date(1960, 0)}
+                      endMonth={new Date(new Date().getFullYear() - 18, 11)}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="emergencyContact">Emergency Contact</Label>

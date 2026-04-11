@@ -45,7 +45,7 @@ import { useHR } from "@/lib/hr-context"
 import type { SalaryRecord, Department } from "@/lib/types"
 
 const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-const departments: Department[] = ["Engineering", "Product", "Design", "Marketing", "HR", "Finance", "Sales", "Operations"]
+const departments: Department[] = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO"]
 
 const getStatusBadge = (status: SalaryRecord["status"]) => {
   switch (status) {
