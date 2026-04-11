@@ -15,6 +15,8 @@ import {
   TrendingUp,
   Calendar,
   Camera,
+  ShieldCheck,
+  Users,
 } from "lucide-react"
 import { CameraPunchDialog } from "@/components/camera-punch-dialog"
 import { toast } from "sonner"
@@ -73,6 +75,7 @@ const leaveBalanceDefaults = {
 function MyPortalContent() {
   const { data: session } = useSession()
   const CURRENT_EMPLOYEE_ID = session?.user?.employeeId ?? ""
+  const isAdmin = session?.user?.role === "ADMIN"
   const {
     employees,
     attendance,
@@ -89,11 +92,16 @@ function MyPortalContent() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraAction, setCameraAction] = useState<"in" | "out">("in")
+  const [punchSubmitting, setPunchSubmitting] = useState(false)
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
   const [leaveType, setLeaveType] = useState<LeaveType>("Casual Leave")
   const [startDate, setStartDate] = useState<Date>()
   const [endDate, setEndDate] = useState<Date>()
   const [reason, setReason] = useState("")
+  const [leaveSubmitting, setLeaveSubmitting] = useState(false)
+  const userName = session?.user?.name ?? "Admin"
+  const userEmail = session?.user?.email ?? ""
+  const userInitials = session?.user?.initials ?? userName.slice(0, 2).toUpperCase()
 
   // Get current employee
   const currentEmployee = employees.find(e => e.id === CURRENT_EMPLOYEE_ID)
@@ -149,9 +157,14 @@ function MyPortalContent() {
     setCameraOpen(true)
   }
 
-  const handleCameraConfirm = (photo: string | null) => {
-    if (cameraAction === "in") checkIn(CURRENT_EMPLOYEE_ID, photo)
-    else checkOut(CURRENT_EMPLOYEE_ID, photo)
+  const handleCameraConfirm = async (photo: string | null) => {
+    setPunchSubmitting(true)
+    try {
+      if (cameraAction === "in") await checkIn(CURRENT_EMPLOYEE_ID, photo)
+      else await checkOut(CURRENT_EMPLOYEE_ID, photo)
+    } finally {
+      setPunchSubmitting(false)
+    }
   }
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,24 +193,29 @@ function MyPortalContent() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
   }
 
-  const handleSubmitLeave = (e: React.FormEvent) => {
+  const handleSubmitLeave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!startDate || !endDate || !reason) return
 
-    addLeaveRequest({
-      employeeId: CURRENT_EMPLOYEE_ID,
-      type: leaveType,
-      startDate: startDate.toISOString().split("T")[0],
-      endDate: endDate.toISOString().split("T")[0],
-      days: calculateDays(),
-      reason,
-    })
-    
-    setLeaveDialogOpen(false)
-    setLeaveType("Casual Leave")
-    setStartDate(undefined)
-    setEndDate(undefined)
-    setReason("")
+    setLeaveSubmitting(true)
+    try {
+      await addLeaveRequest({
+        employeeId: CURRENT_EMPLOYEE_ID,
+        type: leaveType,
+        startDate: startDate.toISOString().split("T")[0],
+        endDate: endDate.toISOString().split("T")[0],
+        days: calculateDays(),
+        reason,
+      })
+      
+      setLeaveDialogOpen(false)
+      setLeaveType("Casual Leave")
+      setStartDate(undefined)
+      setEndDate(undefined)
+      setReason("")
+    } finally {
+      setLeaveSubmitting(false)
+    }
   }
 
   const formatDate = (date: Date) => {
@@ -220,6 +238,89 @@ function MyPortalContent() {
   }
 
   const isCheckedIn = todayAttendance?.checkIn && !todayAttendance?.checkOut
+
+  if (!currentEmployee && isAdmin) {
+    return (
+      <>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">My Portal</h1>
+            <p className="text-sm text-muted-foreground">
+              Your admin account is active, but it is not linked to an employee profile.
+            </p>
+          </div>
+        </div>
+
+        <Card className="border-border/50">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <Avatar className="size-16 border-2 border-primary/20">
+                  <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">{userName}</h2>
+                  <p className="text-sm text-muted-foreground">Administrator</p>
+                  <p className="text-xs text-muted-foreground">{userEmail}</p>
+                </div>
+              </div>
+
+              <Badge variant="secondary" className="w-fit bg-primary/10 text-primary">
+                <ShieldCheck className="mr-1 size-3" />
+                Admin Account
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldCheck className="size-4" />
+                Why This Looks Different
+              </CardTitle>
+              <CardDescription>
+                Employee-only features in this portal need a linked employee record.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <p>You can still use the admin dashboard, employee management, attendance, payroll, tasks, projects, and chat.</p>
+              <p>If you want this page to show personal attendance, leave balance, and punch in or out actions, link this admin user to an employee profile.</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Users className="size-4" />
+                Available Now
+              </CardTitle>
+              <CardDescription>
+                Your main admin tools are still available from the sidebar.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+              <Button variant="outline" onClick={() => window.location.href = "/employees"}>
+                Employees
+              </Button>
+              <Button variant="outline" onClick={() => window.location.href = "/attendance"}>
+                Attendance
+              </Button>
+              <Button variant="outline" onClick={() => window.location.href = "/leaves"}>
+                Leave Requests
+              </Button>
+              <Button variant="outline" onClick={() => window.location.href = "/settings"}>
+                Settings
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    )
+  }
 
   if (!currentEmployee) {
     return <div>Employee not found</div>
@@ -284,7 +385,7 @@ function MyPortalContent() {
               </div>
               
               {!todayAttendance?.checkIn ? (
-                <Button onClick={handleCheckIn} size="lg" className="w-full gap-2">
+                <Button onClick={handleCheckIn} size="lg" className="w-full gap-2" loading={punchSubmitting} disabled={punchSubmitting}>
                   <LogIn className="size-4" />
                   Punch In
                 </Button>
@@ -294,7 +395,7 @@ function MyPortalContent() {
                     <Clock className="size-4 text-emerald-500" />
                     <span>Checked in at {to12h(todayAttendance.checkIn)}</span>
                   </div>
-                  <Button onClick={handleCheckOut} size="lg" variant="outline" className="w-full gap-2">
+                  <Button onClick={handleCheckOut} size="lg" variant="outline" className="w-full gap-2" loading={punchSubmitting} disabled={punchSubmitting}>
                     <LogOut className="size-4" />
                     Punch Out
                   </Button>
@@ -605,10 +706,10 @@ function MyPortalContent() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setLeaveDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setLeaveDialogOpen(false)} disabled={leaveSubmitting}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={!startDate || !endDate || !reason}>
+              <Button type="submit" loading={leaveSubmitting} disabled={!startDate || !endDate || !reason}>
                 Submit Request
               </Button>
             </DialogFooter>

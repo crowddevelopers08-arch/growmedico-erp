@@ -42,14 +42,27 @@ async function getAssignerDirectory(assignedByIds: string[]) {
   return directory
 }
 
+async function isProjectMember(projectId: string, employeeId: string) {
+  const membership = await prisma.projectMember.findUnique({
+    where: {
+      projectId_employeeId: {
+        projectId,
+        employeeId,
+      },
+    },
+  })
+
+  return Boolean(membership)
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const isAdmin = session.user.role === "ADMIN"
+  const canManageTasks = session.user.role === "ADMIN" || session.user.role === "MANAGER"
 
-  // Admins see all tasks; employees see only their own
-  const where = isAdmin ? {} : { assignedToId: session.user.employeeId ?? "" }
+  // Admins and managers see all tasks; employees see only their own
+  const where = canManageTasks ? {} : { assignedToId: session.user.employeeId ?? "" }
 
   const tasks = await prisma.task.findMany({
     where,
@@ -83,7 +96,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== "ADMIN") {
+  const canManageTasks = session?.user.role === "ADMIN" || session?.user.role === "MANAGER"
+  if (!session || !canManageTasks) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -92,6 +106,29 @@ export async function POST(req: NextRequest) {
 
   if (!title || !assignedToId || !projectId) {
     return NextResponse.json({ error: "Title, assigned employee, and project are required" }, { status: 400 })
+  }
+
+  const project = await prisma.clientProject.findUnique({
+    where: { id: projectId },
+    include: {
+      members: {
+        select: {
+          employeeId: true,
+        },
+      },
+    },
+  })
+
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 })
+  }
+
+  if (project.members.length === 0) {
+    return NextResponse.json({ error: "Add project members before assigning tasks" }, { status: 400 })
+  }
+
+  if (!(await isProjectMember(projectId, assignedToId))) {
+    return NextResponse.json({ error: "Task can only be assigned to a project member" }, { status: 400 })
   }
 
   const assigner = await prisma.user.findUnique({

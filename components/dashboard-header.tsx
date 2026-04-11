@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Bell, Search, Plus, UserPlus, CalendarPlus, Clock, FileText, AtSign } from "lucide-react"
+import { Bell, Search, Plus, UserPlus, UserCircle, CalendarPlus, Clock, FileText, AtSign } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -61,12 +61,13 @@ export function DashboardHeader() {
     { title: "Request Leave", icon: CalendarPlus, action: () => setLeaveDialogOpen(true) },
     { title: "View Attendance", icon: Clock, action: () => router.push("/attendance") },
     { title: "Process Payroll", icon: FileText, action: () => router.push("/salary") },
+    { title: "My Portal", icon: UserCircle, action: () => router.push("/my-portal") },
   ]
 
   const employeeQuickActions = [
     { title: "Request Leave", icon: CalendarPlus, action: () => setLeaveDialogOpen(true) },
     { title: "View Attendance", icon: Clock, action: () => router.push("/attendance") },
-    { title: "My Portal", icon: UserPlus, action: () => router.push("/my-portal") },
+    { title: "My Portal", icon: UserCircle, action: () => router.push("/my-portal") },
   ]
 
   const quickActions = isAdmin ? adminQuickActions : employeeQuickActions

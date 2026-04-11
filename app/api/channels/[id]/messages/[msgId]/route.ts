@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { parseDirectChannelName } from "@/lib/chat"
 
 export async function PATCH(
   req: NextRequest,
@@ -16,6 +17,12 @@ export async function PATCH(
 
   const message = await prisma.message.findUnique({ where: { id: msgId } })
   if (!message) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const channel = await prisma.channel.findUnique({ where: { id: message.channelId } })
+  if (!channel) return NextResponse.json({ error: "Channel not found" }, { status: 404 })
+  const directIds = parseDirectChannelName(channel.name)
+  if (directIds && !directIds.includes(session.user.id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   if (message.senderId !== session.user.id && session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -38,6 +45,12 @@ export async function DELETE(
   const { msgId } = await params
   const message = await prisma.message.findUnique({ where: { id: msgId } })
   if (!message) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  const channel = await prisma.channel.findUnique({ where: { id: message.channelId } })
+  if (!channel) return NextResponse.json({ error: "Channel not found" }, { status: 404 })
+  const directIds = parseDirectChannelName(channel.name)
+  if (directIds && !directIds.includes(session.user.id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   if (message.senderId !== session.user.id && session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

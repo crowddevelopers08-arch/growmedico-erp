@@ -128,6 +128,7 @@ function ProjectsPageContent() {
   const { data: session } = useSession()
   const { employees } = useHR()
   const isAdmin = session?.user?.role === "ADMIN"
+  const canManageProjects = isAdmin || session?.user?.role === "MANAGER"
 
   const [projects, setProjects] = useState<ProjectWithCount[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
@@ -143,6 +144,11 @@ function ProjectsPageContent() {
   const [membersDialogOpen, setMembersDialogOpen] = useState(false)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [projectSaving, setProjectSaving] = useState(false)
+  const [membersSaving, setMembersSaving] = useState(false)
+  const [taskSaving, setTaskSaving] = useState(false)
+  const [projectDeleting, setProjectDeleting] = useState(false)
+  const [taskDeleting, setTaskDeleting] = useState(false)
 
   const [projectClientName, setProjectClientName] = useState("")
   const [projectName, setProjectName] = useState("")
@@ -187,7 +193,7 @@ function ProjectsPageContent() {
 
   const visibleProjects = useMemo(() => {
     const query = projectQuery.trim().toLowerCase()
-    const allowed = isAdmin
+    const allowed = canManageProjects
       ? projects
       : projects.filter((project) => {
           const isExplicitMember = project.members?.some((member) => member.employeeId === session?.user?.employeeId)
@@ -201,7 +207,7 @@ function ProjectsPageContent() {
       project.clientName.toLowerCase().includes(query) ||
       (project.description ?? "").toLowerCase().includes(query)
     )
-  }, [isAdmin, projectQuery, projects, session?.user?.employeeId, tasks])
+  }, [canManageProjects, projectQuery, projects, session?.user?.employeeId, tasks])
 
   useEffect(() => {
     if (!selectedProjectId && visibleProjects[0]) setSelectedProjectId(visibleProjects[0].id)
@@ -229,6 +235,14 @@ function ProjectsPageContent() {
     if (!selectedProject) return []
     return getProjectMembers(selectedProject, tasks, employees)
   }, [employees, selectedProject, tasks])
+
+  const assignableProjectMembers = useMemo(() => {
+    if (!selectedProject?.members?.length) return []
+
+    return selectedProject.members
+      .map((member) => employees.find((employee) => employee.id === member.employeeId) ?? member.employee)
+      .filter((employee): employee is Employee => Boolean(employee))
+  }, [employees, selectedProject])
 
   const visibleStages = useMemo(() => {
     const taskStages = selectedProjectTasks.map((task) => task.stage || defaultStages[0])
@@ -293,51 +307,61 @@ function ProjectsPageContent() {
       return
     }
 
-    const response = await fetch("/api/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientName: projectClientName.trim(),
-        name: projectName.trim(),
-        description: projectDescription.trim() || null,
-        dueDate: projectDueDate || null,
-        priority: projectPriority,
-        status: "in_progress",
-        memberIds: projectMemberIds,
-      }),
-    })
+    setProjectSaving(true)
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientName: projectClientName.trim(),
+          name: projectName.trim(),
+          description: projectDescription.trim() || null,
+          dueDate: projectDueDate || null,
+          priority: projectPriority,
+          status: "in_progress",
+          memberIds: projectMemberIds,
+        }),
+      })
 
-    const payload = await response.json()
-    if (!response.ok) {
-      toast.error(payload.error ?? "Failed to create project")
-      return
+      const payload = await response.json()
+      if (!response.ok) {
+        toast.error(payload.error ?? "Failed to create project")
+        return
+      }
+
+      await loadProjects()
+      resetProjectForm()
+      setProjectDialogOpen(false)
+      setSelectedProjectId(payload.id)
+      toast.success("Project created")
+    } finally {
+      setProjectSaving(false)
     }
-
-    await loadProjects()
-    resetProjectForm()
-    setProjectDialogOpen(false)
-    setSelectedProjectId(payload.id)
-    toast.success("Project created")
   }
 
   const handleProjectMembersSave = async () => {
     if (!selectedProject) return
 
-    const response = await fetch(`/api/projects/${selectedProject.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ memberIds: projectMemberIds }),
-    })
+    setMembersSaving(true)
+    try {
+      const response = await fetch(`/api/projects/${selectedProject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberIds: projectMemberIds }),
+      })
 
-    const payload = await response.json().catch(() => null)
-    if (!response.ok) {
-      toast.error(payload?.error ?? "Failed to update project members")
-      return
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        toast.error(payload?.error ?? "Failed to update project members")
+        return
+      }
+
+      await loadProjects()
+      setMembersDialogOpen(false)
+      toast.success("Project members updated")
+    } finally {
+      setMembersSaving(false)
     }
-
-    await loadProjects()
-    setMembersDialogOpen(false)
-    toast.success("Project members updated")
   }
 
   const handleTaskSave = async () => {
@@ -346,59 +370,74 @@ function ProjectsPageContent() {
       return
     }
 
-    const response = await fetch(editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks", {
-      method: editingTask ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: taskTitle.trim(),
-        description: taskDescription.trim() || null,
-        assignedToId: taskAssigneeId,
-        priority: taskPriority,
-        status: taskStatus,
-        stage: taskStage,
-        dueDate: taskDueDate || null,
-        projectId: selectedProject.id,
-      }),
-    })
+    setTaskSaving(true)
+    try {
+      const response = await fetch(editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks", {
+        method: editingTask ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: taskTitle.trim(),
+          description: taskDescription.trim() || null,
+          assignedToId: taskAssigneeId,
+          priority: taskPriority,
+          status: taskStatus,
+          stage: taskStage,
+          dueDate: taskDueDate || null,
+          projectId: selectedProject.id,
+        }),
+      })
 
-    const payload = await response.json().catch(() => null)
-    if (!response.ok) {
-      toast.error(payload?.error ?? "Failed to save task")
-      return
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        toast.error(payload?.error ?? "Failed to save task")
+        return
+      }
+
+      await loadTasks()
+      resetTaskForm()
+      setTaskDialogOpen(false)
+      toast.success(editingTask ? "Task updated" : "Task created")
+    } finally {
+      setTaskSaving(false)
     }
-
-    await loadTasks()
-    resetTaskForm()
-    setTaskDialogOpen(false)
-    toast.success(editingTask ? "Task updated" : "Task created")
   }
 
   const handleProjectDelete = async () => {
     if (!selectedProject) return
     const projectName = selectedProject.name
-    const response = await fetch(`/api/projects/${selectedProject.id}`, { method: "DELETE" })
-    if (!response.ok) {
-      toast.error("Failed to delete project")
-      return
-    }
+    setProjectDeleting(true)
+    try {
+      const response = await fetch(`/api/projects/${selectedProject.id}`, { method: "DELETE" })
+      if (!response.ok) {
+        toast.error("Failed to delete project")
+        return
+      }
 
-    await Promise.all([loadProjects(), loadTasks()])
-    setSelectedProjectId("")
-    setMembersDialogOpen(false)
-    setTaskDialogOpen(false)
-    toast.success(`Project "${projectName}" deleted`)
+      await Promise.all([loadProjects(), loadTasks()])
+      setSelectedProjectId("")
+      setMembersDialogOpen(false)
+      setTaskDialogOpen(false)
+      toast.success(`Project "${projectName}" deleted`)
+    } finally {
+      setProjectDeleting(false)
+    }
   }
 
   const handleTaskDelete = async (task: Task) => {
-    const response = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" })
-    if (!response.ok) {
-      toast.error("Failed to delete task")
-      return
+    setTaskDeleting(true)
+    try {
+      const response = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" })
+      if (!response.ok) {
+        toast.error("Failed to delete task")
+        return
+      }
+      await loadTasks()
+      setTaskDialogOpen(false)
+      resetTaskForm()
+      toast.success("Task deleted")
+    } finally {
+      setTaskDeleting(false)
     }
-    await loadTasks()
-    setTaskDialogOpen(false)
-    resetTaskForm()
-    toast.success("Task deleted")
   }
 
   const handleStatusChange = async (task: Task, status: TaskStatus) => {
@@ -439,6 +478,21 @@ function ProjectsPageContent() {
     setTaskDialogOpen(true)
   }
 
+  useEffect(() => {
+    if (!taskDialogOpen) return
+    if (assignableProjectMembers.length === 0) {
+      setTaskAssigneeId("")
+      return
+    }
+
+    const hasSelectedAssignee = assignableProjectMembers.some((employee) => employee.id === taskAssigneeId)
+    if (!hasSelectedAssignee) {
+      setTaskAssigneeId(editingTask?.assignedToId && assignableProjectMembers.some((employee) => employee.id === editingTask.assignedToId)
+        ? editingTask.assignedToId
+        : "")
+    }
+  }, [assignableProjectMembers, editingTask?.assignedToId, taskAssigneeId, taskDialogOpen])
+
   if (loading) {
     return <div className="grid min-h-[70vh] place-items-center rounded-[28px] border bg-card text-muted-foreground">Loading projects workspace...</div>
   }
@@ -456,7 +510,7 @@ function ProjectsPageContent() {
                   <p className="text-sm text-muted-foreground">Client delivery workspace</p>
                 </div>
               </div>
-              {isAdmin && <Button size="icon" className="rounded-full" onClick={() => { resetProjectForm(); setProjectDialogOpen(true) }}><Plus className="size-5" /></Button>}
+              {canManageProjects && <Button size="icon" className="rounded-full" onClick={() => { resetProjectForm(); setProjectDialogOpen(true) }}><Plus className="size-5" /></Button>}
             </div>
             <div className="mt-4 rounded-2xl border bg-muted/30 p-4">
               <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground"><span>Portfolio progress</span><span>{completedTasks}/{selectedProjectTasks.length}</span></div>
@@ -533,9 +587,9 @@ function ProjectsPageContent() {
                     <Button variant={viewMode === "tasks" ? "default" : "outline"} onClick={() => setViewMode("tasks")}><ClipboardList className="mr-2 size-4" />Tasks</Button>
                     <Button variant={viewMode === "table" ? "default" : "outline"} onClick={() => setViewMode("table")}><TableProperties className="mr-2 size-4" />Table</Button>
                     <Button variant={viewMode === "info" ? "default" : "outline"} onClick={() => setViewMode("info")}><Info className="mr-2 size-4" />Info</Button>
-                    {isAdmin && <Button variant="outline" className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" onClick={openMembersDialog}><Users className="mr-2 size-4" />Members</Button>}
-                    {isAdmin && <Button variant="destructive" onClick={() => void handleProjectDelete()}><Trash2 className="mr-2 size-4" />Delete Project</Button>}
-                    {isAdmin && <Button onClick={() => { resetTaskForm(); setTaskDialogOpen(true) }}><Plus className="mr-2 size-4" />Add Task</Button>}
+                    {canManageProjects && <Button variant="outline" className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" onClick={openMembersDialog}><Users className="mr-2 size-4" />Members</Button>}
+                    {canManageProjects && <Button variant="destructive" onClick={() => void handleProjectDelete()} loading={projectDeleting}><Trash2 className="mr-2 size-4" />Delete Project</Button>}
+                    {canManageProjects && <Button onClick={() => { resetTaskForm(); setTaskDialogOpen(true) }}><Plus className="mr-2 size-4" />Add Task</Button>}
                   </div>
                 </div>
               </div>
@@ -555,7 +609,7 @@ function ProjectsPageContent() {
                     <div className="space-y-3 rounded-[26px] border bg-muted/20 p-3">
                       {visibleStages.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No stages created yet. Create a task to show its stage here.</div> : selectedStageTasks.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No tasks in this stage yet.</div> : selectedStageTasks.map((task) => {
                         const employee = employees.find((item) => item.id === task.assignedToId)
-                        return <div key={task.id} className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{task.title}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{employee?.name ?? "Unassigned"}</span><span>/</span><span>{formatDate(task.dueDate)}</span><span>/</span><span>{taskStatuses[task.status]}</span></div></div>{isAdmin && <Select value={task.stage || defaultStages[0]} onValueChange={(value) => moveTaskStage(task, value)}><SelectTrigger className="w-[180px] bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select>}<Button variant="ghost" className="text-primary hover:text-primary" onClick={() => { setDetailTask(task); setDetailOpen(true) }}>Open</Button>{isAdmin && <Button variant="ghost" onClick={() => openEditTask(task)}>Edit</Button>}</div>
+                        return <div key={task.id} className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{task.title}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{employee?.name ?? "Unassigned"}</span><span>/</span><span>{formatDate(task.dueDate)}</span><span>/</span><span>{taskStatuses[task.status]}</span></div></div>{canManageProjects && <Select value={task.stage || defaultStages[0]} onValueChange={(value) => moveTaskStage(task, value)}><SelectTrigger className="w-[180px] bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select>}<Button variant="ghost" className="text-primary hover:text-primary" onClick={() => { setDetailTask(task); setDetailOpen(true) }}>Open</Button>{canManageProjects && <Button variant="ghost" onClick={() => openEditTask(task)}>Edit</Button>}</div>
                       })}
                     </div>
                   </div>
@@ -596,7 +650,7 @@ function ProjectsPageContent() {
         </section>
       </div>
 
-      <TaskDetailSheet task={detailTask} open={detailOpen} onOpenChange={setDetailOpen} employeeName={employees.find((employee) => employee.id === detailTask?.assignedToId)?.name} employeeAvatar={employees.find((employee) => employee.id === detailTask?.assignedToId)?.avatar ?? undefined} isAdmin={isAdmin} onStatusChange={handleStatusChange} onEditTask={(task) => { setDetailOpen(false); openEditTask(task) }} />
+      <TaskDetailSheet task={detailTask} open={detailOpen} onOpenChange={setDetailOpen} employeeName={employees.find((employee) => employee.id === detailTask?.assignedToId)?.name} employeeAvatar={employees.find((employee) => employee.id === detailTask?.assignedToId)?.avatar ?? undefined} isAdmin={canManageProjects} onStatusChange={handleStatusChange} onEditTask={(task) => { setDetailOpen(false); openEditTask(task) }} />
 
       <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
         <DialogContent className="max-w-3xl sm:max-h-[90vh] sm:overflow-y-auto">
@@ -607,7 +661,7 @@ function ProjectsPageContent() {
             <div className="grid gap-5 md:grid-cols-2"><div className="space-y-2"><Label>Project Due Date</Label><Input type="date" value={projectDueDate} onChange={(event) => setProjectDueDate(event.target.value)} className="h-12 bg-background" /></div><div className="space-y-2"><Label>Priority</Label><Select value={projectPriority} onValueChange={(value) => setProjectPriority(value as TaskPriority)}><SelectTrigger className="h-12 bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(priorityClasses).map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></div></div>
             <MemberSelector employees={employees} selectedIds={projectMemberIds} onToggle={toggleProjectMember} />
           </div>
-          <DialogFooter className="grid grid-cols-1 gap-3 sm:grid-cols-2"><Button type="button" variant="outline" className="h-12 border-warning/20 bg-warning/10 text-warning hover:bg-warning/15 hover:text-warning" onClick={() => { setProjectPriority("high"); toast.success("Template applied: default delivery stages are ready.") }}>Use Template</Button><Button type="button" className="h-12" onClick={handleProjectCreate}>Next</Button></DialogFooter>
+          <DialogFooter className="grid grid-cols-1 gap-3 sm:grid-cols-2"><Button type="button" variant="outline" className="h-12 border-warning/20 bg-warning/10 text-warning hover:bg-warning/15 hover:text-warning" onClick={() => { setProjectPriority("high"); toast.success("Template applied: default delivery stages are ready.") }} disabled={projectSaving}>Use Template</Button><Button type="button" className="h-12" onClick={handleProjectCreate} loading={projectSaving}>Next</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -615,7 +669,7 @@ function ProjectsPageContent() {
         <DialogContent className="max-w-2xl sm:max-h-[90vh] sm:overflow-y-auto">
           <DialogHeader><DialogTitle>Manage Project Members</DialogTitle><DialogDescription>{selectedProject ? `Add or remove members for ${selectedProject.name}.` : "Select a project first."}</DialogDescription></DialogHeader>
           <div className="py-3"><MemberSelector employees={employees} selectedIds={projectMemberIds} onToggle={toggleProjectMember} /></div>
-          <DialogFooter className="flex items-center gap-3"><Button type="button" variant="outline" onClick={() => setMembersDialogOpen(false)}>Cancel</Button><Button type="button" onClick={handleProjectMembersSave}>Save Members</Button></DialogFooter>
+          <DialogFooter className="flex items-center gap-3"><Button type="button" variant="outline" onClick={() => setMembersDialogOpen(false)} disabled={membersSaving}>Cancel</Button><Button type="button" onClick={handleProjectMembersSave} loading={membersSaving}>Save Members</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -625,10 +679,10 @@ function ProjectsPageContent() {
           <div className="grid gap-4 py-3">
             <div className="space-y-2"><Label>Task Title*</Label><Input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Enter task title" className="bg-background" /></div>
             <div className="space-y-2"><Label>Description</Label><Textarea value={taskDescription} onChange={(event) => setTaskDescription(event.target.value)} placeholder="Add task context" rows={4} className="bg-background" /></div>
-            <div className="grid gap-4 md:grid-cols-2"><div className="space-y-2"><Label>Stage</Label><Select value={taskStage} onValueChange={setTaskStage}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Assignee*</Label><Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}><SelectTrigger className="bg-background"><SelectValue placeholder="Select employee" /></SelectTrigger><SelectContent>{employees.map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.name}</SelectItem>)}</SelectContent></Select></div></div>
+            <div className="grid gap-4 md:grid-cols-2"><div className="space-y-2"><Label>Stage</Label><Select value={taskStage} onValueChange={setTaskStage}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Assignee*</Label><Select value={taskAssigneeId} onValueChange={setTaskAssigneeId} disabled={assignableProjectMembers.length === 0}><SelectTrigger className="bg-background"><SelectValue placeholder={assignableProjectMembers.length === 0 ? "Add project members first" : "Select project member"} /></SelectTrigger><SelectContent>{assignableProjectMembers.map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.name}</SelectItem>)}</SelectContent></Select>{assignableProjectMembers.length === 0 && <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>}</div></div>
             <div className="grid gap-4 md:grid-cols-3"><div className="space-y-2"><Label>Priority</Label><Select value={taskPriority} onValueChange={(value) => setTaskPriority(value as TaskPriority)}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(priorityClasses).map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Status</Label><Select value={taskStatus} onValueChange={(value) => setTaskStatus(value as TaskStatus)}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(taskStatuses).map((status) => <SelectItem key={status} value={status}>{taskStatuses[status as TaskStatus]}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Due Date</Label><Input type="date" value={taskDueDate} onChange={(event) => setTaskDueDate(event.target.value)} className="bg-background" /></div></div>
           </div>
-          <DialogFooter className="flex items-center justify-between gap-3"><div>{editingTask && isAdmin && <Button type="button" variant="destructive" onClick={() => void handleTaskDelete(editingTask)}><Trash2 className="mr-2 size-4" />Delete</Button>}</div><div className="flex flex-wrap items-center gap-2 sm:gap-3 xl:max-w-[420px] xl:justify-end"><Button type="button" variant="outline" onClick={() => { setTaskDialogOpen(false); resetTaskForm() }}>Cancel</Button><Button type="button" onClick={handleTaskSave}>{editingTask ? "Update Task" : "Create Task"}</Button></div></DialogFooter>
+          <DialogFooter className="flex items-center justify-between gap-3"><div>{editingTask && canManageProjects && <Button type="button" variant="destructive" onClick={() => void handleTaskDelete(editingTask)} loading={taskDeleting}><Trash2 className="mr-2 size-4" />Delete</Button>}</div><div className="flex flex-wrap items-center gap-2 sm:gap-3 xl:max-w-[420px] xl:justify-end"><Button type="button" variant="outline" onClick={() => { setTaskDialogOpen(false); resetTaskForm() }} disabled={taskSaving || taskDeleting}>Cancel</Button><Button type="button" onClick={handleTaskSave} loading={taskSaving}>{editingTask ? "Update Task" : "Create Task"}</Button></div></DialogFooter>
         </DialogContent>
       </Dialog>
     </>

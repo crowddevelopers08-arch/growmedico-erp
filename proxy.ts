@@ -11,7 +11,7 @@ export default withAuth(
     const isAdmin = token.role === "ADMIN"
 
     // Admin-only routes
-    const adminRoutes = ["/employees", "/salary", "/settings", "/dashboard"]
+    const adminRoutes = ["/salary", "/settings"]
     const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route))
 
     if (isAdminRoute && !isAdmin) {

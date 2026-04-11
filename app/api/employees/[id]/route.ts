@@ -9,9 +9,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const employee = await prisma.employee.findUnique({ where: { id } })
+  const employee = await prisma.employee.findUnique({
+    where: { id },
+    include: {
+      user: {
+        select: {
+          role: true,
+        },
+      },
+    },
+  })
   if (!employee) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  return NextResponse.json(employee)
+  const { user, ...employeeData } = employee
+  return NextResponse.json({
+    ...employeeData,
+    accountRole: employee.user?.role ?? "EMPLOYEE",
+  })
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -23,18 +36,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params
     const body = await req.json()
-    const { password, ...employeeData } = body
+    const { password, accountRole, ...employeeData } = body
     const employee = await prisma.employee.update({ where: { id }, data: employeeData })
 
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10)
+    if (password || accountRole) {
+      const data: { password?: string; role?: string } = {}
+      if (password) {
+        data.password = await bcrypt.hash(password, 10)
+      }
+      if (accountRole) {
+        data.role = accountRole
+      }
+
       await prisma.user.update({
         where: { employeeId: id },
-        data: { password: hashedPassword },
+        data,
       })
     }
 
-    return NextResponse.json(employee)
+    return NextResponse.json({
+      ...employee,
+      accountRole: accountRole ?? undefined,
+    })
   } catch (err: unknown) {
     console.error("[PATCH /api/employees/:id] Error:", err)
     const message = err instanceof Error ? err.message : "Failed to update employee"

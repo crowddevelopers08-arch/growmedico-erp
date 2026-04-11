@@ -44,7 +44,8 @@ async function validateMemberIds(memberIds: string[]) {
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== "ADMIN") {
+  const canManageProjects = session?.user.role === "ADMIN" || session?.user.role === "MANAGER"
+  if (!session || !canManageProjects) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -77,7 +78,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== "ADMIN") {
+  const canManageProjects = session?.user.role === "ADMIN" || session?.user.role === "MANAGER"
+  if (!session || !canManageProjects) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

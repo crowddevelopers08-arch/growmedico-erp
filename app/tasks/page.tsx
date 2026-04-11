@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Plus, Search, Trash2, CheckCircle2, Clock, AlertCircle,
   CircleDot, CalendarIcon, ChevronDown, ClipboardList, MessageSquare, BriefcaseBusiness,
@@ -31,7 +31,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useHR } from "@/lib/hr-context"
 import { TaskDetailSheet } from "@/components/task-detail-sheet"
-import type { Task, TaskStatus, TaskPriority, ClientProject } from "@/lib/types"
+import type { Task, TaskStatus, TaskPriority, ClientProject, Employee } from "@/lib/types"
 
 const priorityConfig = {
   low: { label: "Low", class: "bg-slate-500/10 text-slate-500 border-slate-500/20" },
@@ -75,6 +75,7 @@ function TasksPageContent() {
   const { data: session } = useSession()
   const { employees } = useHR()
   const isAdmin = session?.user?.role === "ADMIN"
+  const canManageTasks = isAdmin || session?.user?.role === "MANAGER"
 
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<ClientProject[]>([])
@@ -95,6 +96,19 @@ function TasksPageContent() {
   const [formAssignees, setFormAssignees] = useState<string[]>([])
   const [formPriority, setFormPriority] = useState<TaskPriority>("medium")
   const [formDueDate, setFormDueDate] = useState("")
+
+  const selectedFormProject = useMemo(
+    () => projects.find((project) => project.id === formProjectId) ?? null,
+    [formProjectId, projects]
+  )
+
+  const assignableProjectMembers = useMemo(() => {
+    if (!selectedFormProject?.members?.length) return []
+
+    return selectedFormProject.members
+      .map((member) => employees.find((employee) => employee.id === member.employeeId) ?? member.employee)
+      .filter((employee): employee is Employee => Boolean(employee))
+  }, [employees, selectedFormProject])
 
   const loadTasks = useCallback(async () => {
     const res = await fetch("/api/tasks")
@@ -139,6 +153,18 @@ function TasksPageContent() {
     setFormDueDate(task.dueDate ?? "")
     setDialogOpen(true)
   }
+
+  useEffect(() => {
+    if (!dialogOpen) return
+
+    const validAssignees = formAssignees.filter((employeeId) =>
+      assignableProjectMembers.some((employee) => employee.id === employeeId)
+    )
+
+    if (validAssignees.length !== formAssignees.length) {
+      setFormAssignees(validAssignees)
+    }
+  }, [assignableProjectMembers, dialogOpen, formAssignees])
 
   const handleSave = async () => {
     if (!formTitle.trim() || formAssignees.length === 0 || !formProjectId) return
@@ -249,10 +275,10 @@ function TasksPageContent() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
           <p className="text-sm text-muted-foreground">
-            {isAdmin ? "Manage client projects and assign delivery work to your team." : "View and update your assigned tasks."}
+            {canManageTasks ? "Manage client projects and assign delivery work to your team." : "View and update your assigned tasks."}
           </p>
         </div>
-        {isAdmin && (
+        {canManageTasks && (
           <div className="flex gap-2 sm:shrink-0">
             <Button onClick={openAdd}>
               <Plus className="mr-2 size-4" />Assign Task
@@ -405,7 +431,7 @@ function TasksPageContent() {
                               {statusConfig[status].label}
                             </DropdownMenuItem>
                           ))}
-                          {isAdmin && (
+                          {canManageTasks && (
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => openEdit(task)}>Edit Task</DropdownMenuItem>
@@ -431,7 +457,7 @@ function TasksPageContent() {
         onOpenChange={setDetailOpen}
         employeeName={employees.find((e) => e.id === detailTask?.assignedToId)?.name}
         employeeAvatar={employees.find((e) => e.id === detailTask?.assignedToId)?.avatar ?? undefined}
-        isAdmin={isAdmin}
+        isAdmin={canManageTasks}
         onStatusChange={handleStatusChange}
         onEditTask={(task) => { setDetailOpen(false); openEdit(task) }}
       />
@@ -467,9 +493,9 @@ function TasksPageContent() {
                 <Label>Assign To *</Label>
                 {editTask ? (
                   <Select value={formAssignees[0] ?? ""} onValueChange={(value) => setFormAssignees([value])}>
-                    <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={assignableProjectMembers.length === 0 ? "Add project members first" : "Select project member"} /></SelectTrigger>
                     <SelectContent>
-                      {employees.map((employee) => (
+                      {assignableProjectMembers.map((employee) => (
                         <SelectItem key={employee.id} value={employee.id}>
                           <div className="flex items-center gap-2">
                             <Avatar className="size-5"><AvatarImage src={employee.avatar} /><AvatarFallback className="text-[9px]">{employee.initials}</AvatarFallback></Avatar>
@@ -482,12 +508,12 @@ function TasksPageContent() {
                 ) : (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start font-normal">
-                        {formAssignees.length === 0 ? "Select employees" : `${formAssignees.length} selected`}
+                      <Button variant="outline" className="w-full justify-start font-normal" disabled={assignableProjectMembers.length === 0}>
+                        {assignableProjectMembers.length === 0 ? "Add project members first" : formAssignees.length === 0 ? "Select project members" : `${formAssignees.length} selected`}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
-                      {employees.map((employee) => (
+                      {assignableProjectMembers.map((employee) => (
                         <DropdownMenuCheckboxItem
                           key={employee.id}
                           checked={formAssignees.includes(employee.id)}
@@ -502,6 +528,9 @@ function TasksPageContent() {
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                )}
+                {assignableProjectMembers.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -521,8 +550,8 @@ function TasksPageContent() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={!formTitle.trim() || formAssignees.length === 0 || !formProjectId || saving}>
-              {saving ? "Saving..." : editTask ? "Update Task" : "Assign Task"}
+            <Button onClick={handleSave} loading={saving} disabled={!formTitle.trim() || formAssignees.length === 0 || !formProjectId}>
+              {editTask ? "Update Task" : "Assign Task"}
             </Button>
           </DialogFooter>
         </DialogContent>

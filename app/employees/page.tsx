@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { Plus, Search, MoreHorizontal, ArrowUpDown, Filter, Download, Trash2 } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -58,6 +59,8 @@ const getStatusBadge = (status: string) => {
 }
 
 function EmployeesPageContent() {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
   const { employees, deleteEmployee } = useHR()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedDepartments, setSelectedDepartments] = useState<Department[]>([])
@@ -164,13 +167,15 @@ function EmployeesPageContent() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Employees</h1>
           <p className="text-sm text-muted-foreground">
-            Manage your team members and their information.
+            {isAdmin ? "Manage your team members and their information." : "View your team members and their information."}
           </p>
         </div>
-        <Button onClick={handleAddEmployee} className="sm:shrink-0">
-          <Plus className="mr-2 size-4" />
-          Add Employee
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleAddEmployee} className="sm:shrink-0">
+            <Plus className="mr-2 size-4" />
+            Add Employee
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -359,17 +364,21 @@ function EmployeesPageContent() {
                           <DropdownMenuItem onClick={() => handleViewEmployee(employee)}>
                             View Profile
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditEmployee(employee)}>
-                            Edit Details
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => handleDeleteClick(employee)}
-                          >
-                            <Trash2 className="mr-2 size-4" />
-                            Remove Employee
-                          </DropdownMenuItem>
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleEditEmployee(employee)}>
+                                Edit Details
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDeleteClick(employee)}
+                              >
+                                <Trash2 className="mr-2 size-4" />
+                                Remove Employee
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

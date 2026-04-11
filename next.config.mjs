@@ -6,6 +6,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  serverExternalPackages: ["pg", "@prisma/adapter-pg", "bcryptjs"],
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["localhost:3000"],
+    },
+  },
 }
 
 export default nextConfig

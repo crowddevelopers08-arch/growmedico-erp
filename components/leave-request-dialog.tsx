@@ -44,6 +44,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
   const [startDate, setStartDate] = useState<Date>()
   const [endDate, setEndDate] = useState<Date>()
   const [reason, setReason] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open) {
@@ -61,21 +62,25 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!employeeId || !startDate || !endDate || !reason) return
 
-    addLeaveRequest({
-      employeeId,
-      type: leaveType,
-      startDate: startDate.toISOString().split("T")[0],
-      endDate: endDate.toISOString().split("T")[0],
-      days: calculateDays(),
-      reason,
-    })
-    
-    onOpenChange(false)
+    setIsSubmitting(true)
+    try {
+      await addLeaveRequest({
+        employeeId,
+        type: leaveType,
+        startDate: startDate.toISOString().split("T")[0],
+        endDate: endDate.toISOString().split("T")[0],
+        days: calculateDays(),
+        reason,
+      })
+      onOpenChange(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const formatDate = (date: Date) => {
@@ -203,10 +208,10 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!employeeId || !startDate || !endDate || !reason}>
+            <Button type="submit" loading={isSubmitting} disabled={!employeeId || !startDate || !endDate || !reason}>
               Submit Request
             </Button>
           </DialogFooter>

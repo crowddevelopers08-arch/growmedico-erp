@@ -2,6 +2,7 @@
 
 import {
   LayoutDashboard,
+  Hash,
   Users,
   Clock,
   CalendarDays,
@@ -43,22 +44,27 @@ import {
 
 const adminNavItems = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
+  { title: "My Portal", href: "/my-portal", icon: UserCircle },
   { title: "Employees", href: "/employees", icon: Users },
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
   { title: "Salary", href: "/salary", icon: DollarSign },
   { title: "Tasks", href: "/tasks", icon: ClipboardList },
   { title: "Projects", href: "/projects", icon: FolderKanban },
-  { title: "Chat", href: "/chat", icon: MessageSquare },
 ]
 
 const employeeNavItems = [
   { title: "My Portal", href: "/my-portal", icon: UserCircle },
+  { title: "Employees", href: "/employees", icon: Users },
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
   { title: "Tasks", href: "/tasks", icon: ClipboardList },
   { title: "Projects", href: "/projects", icon: FolderKanban },
-  { title: "Chat", href: "/chat", icon: MessageSquare },
+]
+
+const channelNavItems = [
+  { title: "Channels", href: "/channels", icon: Hash },
+  { title: "Private Chat", href: "/chat", icon: MessageSquare },
 ]
 
 export function AppSidebar() {
@@ -67,6 +73,7 @@ export function AppSidebar() {
   const { data: session } = useSession()
 
   const isAdmin = session?.user?.role === "ADMIN"
+  const roleLabel = isAdmin ? "Admin" : session?.user?.role === "MANAGER" ? "Manager" : "Employee"
   const navItems = isAdmin ? adminNavItems : employeeNavItems
   const userName = session?.user?.name ?? "User"
   const userEmail = session?.user?.email ?? ""
@@ -100,18 +107,43 @@ export function AppSidebar() {
             priority
           />
         </div>
-      </SidebarHeader>
+      </SidebarHeader> 
 
       <SidebarSeparator />
 
       <SidebarContent className="px-2">
         <SidebarGroup>
           <SidebarGroupLabel className="px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            {isAdmin ? "Main" : "My Workspace"}
+            Main
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.href}
+                    tooltip={item.title}
+                    className="h-9 rounded-lg transition-colors"
+                  >
+                    <Link href={item.href}>
+                      <item.icon className="size-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Channels
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {channelNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
@@ -173,7 +205,7 @@ export function AppSidebar() {
                   </Avatar>
                   <div className="flex flex-col items-start text-left group-data-[collapsible=icon]:hidden">
                     <span className="text-sm font-medium text-foreground">{userName}</span>
-                    <span className="text-xs text-muted-foreground">{isAdmin ? "Admin" : "Employee"}</span>
+                    <span className="text-xs text-muted-foreground">{roleLabel}</span>
                   </div>
                   <ChevronDown className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
                 </SidebarMenuButton>
@@ -198,14 +230,12 @@ export function AppSidebar() {
                     </Link>
                   </DropdownMenuItem>
                 )}
-                {!isAdmin && (
-                  <DropdownMenuItem asChild>
-                    <Link href="/my-portal">
-                      <UserCircle className="mr-2 size-4" />
-                      My Portal
-                    </Link>
-                  </DropdownMenuItem>
-                )}
+                <DropdownMenuItem asChild>
+                  <Link href="/my-portal">
+                    <UserCircle className="mr-2 size-4" />
+                    My Portal
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive cursor-pointer"

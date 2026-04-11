@@ -13,6 +13,13 @@ export async function GET() {
   const [employees, todayAttendance, approvedLeavesToday] = await Promise.all([
     prisma.employee.findMany({
       orderBy: { createdAt: "asc" },
+      include: {
+        user: {
+          select: {
+            role: true,
+          },
+        },
+      },
     }),
     prisma.attendance.findMany({
       where: { date: today },
@@ -32,23 +39,26 @@ export async function GET() {
   const leaveEmployeeIds = new Set(approvedLeavesToday.map((l) => l.employeeId))
 
   const employeesWithLiveStatus = employees.map((employee) => {
+    const { user, ...employeeData } = employee
+    const accountRole = employee.user?.role ?? "EMPLOYEE"
+
     if (leaveEmployeeIds.has(employee.id)) {
-      return { ...employee, status: "onLeave" as const }
+      return { ...employeeData, accountRole, status: "onLeave" as const }
     }
 
     const attendanceStatus = attendanceByEmployee.get(employee.id)
     if (attendanceStatus === "remote") {
-      return { ...employee, status: "remote" as const }
+      return { ...employeeData, accountRole, status: "remote" as const }
     }
     if (attendanceStatus === "present" || attendanceStatus === "late") {
-      return { ...employee, status: "present" as const }
+      return { ...employeeData, accountRole, status: "present" as const }
     }
     if (attendanceStatus === "absent") {
-      return { ...employee, status: "absent" as const }
+      return { ...employeeData, accountRole, status: "absent" as const }
     }
 
     // No attendance record for today means absent for today's employee view.
-    return { ...employee, status: "absent" as const }
+    return { ...employeeData, accountRole, status: "absent" as const }
   })
 
   return NextResponse.json(employeesWithLiveStatus)
@@ -62,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { password, ...employeeData } = body
+    const { password, accountRole = "EMPLOYEE", ...employeeData } = body
 
     if (!password) {
       return NextResponse.json({ error: "Password is required" }, { status: 400 })
@@ -81,7 +91,7 @@ export async function POST(req: NextRequest) {
       data: {
         email: employee.email,
         password: hashedPassword,
-        role: "EMPLOYEE",
+        role: accountRole,
         employeeId: employee.id,
       },
     })

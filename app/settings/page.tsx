@@ -52,6 +52,11 @@ function SettingsPageContent() {
   const { data: session } = useSession()
   const { setTheme } = useTheme()
   const isAdmin = session?.user?.role === "ADMIN"
+  const roleLabel = session?.user?.role === "ADMIN"
+    ? "Admin"
+    : session?.user?.role === "MANAGER"
+      ? "Manager"
+      : "Employee"
 
   const [loading, setLoading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -98,7 +103,7 @@ function SettingsPageContent() {
     setUserSettings(prev => ({
       ...prev,
       email: session.user?.email ?? "",
-      role: session.user?.role === "ADMIN" ? "Admin" : "Employee",
+      role: roleLabel,
     }))
 
     Promise.all([
@@ -111,7 +116,7 @@ function SettingsPageContent() {
       }
       if (!company.error) setCompanySettings(company)
     }).catch(err => console.error("Failed to load settings:", err))
-  }, [session?.user?.id])
+  }, [roleLabel, session?.user?.id])
 
   const handleSaveCompany = async () => {
     setLoading(true)
@@ -361,7 +366,7 @@ function SettingsPageContent() {
           </Card>
 
           <div className="flex justify-end">
-            <Button onClick={handleSaveCompany} disabled={loading}>
+            <Button onClick={handleSaveCompany} loading={loading}>
               <Save className="mr-2 size-4" />
               Save Changes
             </Button>
@@ -435,7 +440,7 @@ function SettingsPageContent() {
           </Card>
 
           <div className="flex justify-end">
-            <Button onClick={handleSaveProfile} disabled={loading}>
+            <Button onClick={handleSaveProfile} loading={loading}>
               <Save className="mr-2 size-4" />
               Save Changes
             </Button>
@@ -586,10 +591,10 @@ function SettingsPageContent() {
                 </div>
               ))}
               <div className="flex justify-end pt-2">
-                <Button onClick={handleChangePassword} disabled={loading}>
-                  <Save className="mr-2 size-4" />
-                  Update Password
-                </Button>
+            <Button onClick={handleChangePassword} loading={loading}>
+              <Save className="mr-2 size-4" />
+              Update Password
+            </Button>
               </div>
             </CardContent>
           </Card>

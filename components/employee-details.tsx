@@ -1,6 +1,7 @@
 "use client"
 
 import { X, Mail, Phone, MapPin, Calendar, DollarSign, AlertCircle, Building2, Briefcase } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -38,6 +39,10 @@ const getStatusBadge = (status: string) => {
 }
 
 export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: EmployeeDetailsProps) {
+  const { data: session } = useSession()
+  const role = session?.user?.role
+  const canSeeSalary = role === "ADMIN" || role === "MANAGER"
+  const canEdit = role === "ADMIN"
   const { getAttendanceByEmployee, getLeaveRequestsByEmployee, getSalaryByEmployee } = useHR()
   
   if (!employee) return null
@@ -134,10 +139,12 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
                 <Calendar className="size-4 text-muted-foreground" />
                 <span>Joined {formatDate(employee.joinDate)}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <DollarSign className="size-4 text-muted-foreground" />
-                <span>{formatCurrency(employee.salary)} / year</span>
-              </div>
+              {canSeeSalary && (
+                <div className="flex items-center gap-3 text-sm">
+                  <DollarSign className="size-4 text-muted-foreground" />
+                  <span>{formatCurrency(employee.salary)} / year</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -191,8 +198,8 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
             </Card>
           )}
 
-          {/* Latest Salary */}
-          {latestSalary && (
+          {/* Latest Salary — admin/manager only */}
+          {canSeeSalary && latestSalary && (
             <Card className="border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium">Latest Salary ({latestSalary.month} {latestSalary.year})</CardTitle>
@@ -224,9 +231,11 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
           )}
 
           <div className="flex gap-3 pt-4">
-            <Button className="flex-1" onClick={() => onEdit(employee)}>
-              Edit Employee
-            </Button>
+            {canEdit && (
+              <Button className="flex-1" onClick={() => onEdit(employee)}>
+                Edit Employee
+              </Button>
+            )}
             <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               Close
             </Button>

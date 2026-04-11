@@ -21,10 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useHR } from "@/lib/hr-context"
-import type { Employee, Department, EmployeeStatus } from "@/lib/types"
+import type { Employee, Department, EmployeeStatus, AccountRole } from "@/lib/types"
 
 const departments: Department[] = ["Engineering", "Product", "Design", "Marketing", "HR", "Finance", "Sales", "Operations"]
 const statuses: EmployeeStatus[] = ["present", "absent", "onLeave", "remote"]
+const accountRoles: AccountRole[] = ["EMPLOYEE", "MANAGER", "ADMIN"]
 
 interface EmployeeDialogProps {
   open: boolean
@@ -44,6 +45,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
     phone: "",
     department: "Engineering" as Department,
     role: "",
+    accountRole: "EMPLOYEE" as AccountRole,
     status: "present" as EmployeeStatus,
     salary: "",
     address: "",
@@ -61,6 +63,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
         phone: employee.phone,
         department: employee.department,
         role: employee.role,
+        accountRole: employee.accountRole ?? "EMPLOYEE",
         status: employee.status,
         salary: String(employee.salary),
         address: employee.address,
@@ -76,6 +79,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
         phone: "",
         department: "Engineering",
         role: "",
+        accountRole: "EMPLOYEE",
         status: "present",
         salary: "",
         address: "",
@@ -105,6 +109,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
       initials: getInitials(formData.name),
       department: formData.department,
       role: formData.role,
+      accountRole: formData.accountRole,
       status: formData.status,
       joinDate: formData.joinDate,
       salary: Number(formData.salary),
@@ -232,6 +237,27 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="accountRole">Account Role</Label>
+                <Select
+                  value={formData.accountRole}
+                  onValueChange={(value: AccountRole) => setFormData({ ...formData, accountRole: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accountRoles.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role.charAt(0) + role.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={formData.status}
@@ -319,8 +345,8 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : mode === "add" ? "Add Employee" : "Save Changes"}
+            <Button type="submit" loading={isSubmitting}>
+              {mode === "add" ? "Add Employee" : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>

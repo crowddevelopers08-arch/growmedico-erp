@@ -1,4 +1,5 @@
 export type EmployeeStatus = "present" | "absent" | "onLeave" | "remote" | "late"
+export type AccountRole = "ADMIN" | "MANAGER" | "EMPLOYEE"
 
 export type LeaveType = "Casual Leave" | "Privilege Leave" | "Sick Leave" | "Work From Home"
 
@@ -15,6 +16,7 @@ export interface Employee {
   initials: string
   department: Department
   role: string
+  accountRole?: AccountRole
   status: EmployeeStatus
   joinDate: string
   salary: number
@@ -115,6 +117,16 @@ export interface Channel {
   description?: string | null
   createdById: string
   createdAt: string
+  kind?: "group" | "direct" | "group_dm"
+  peerUserId?: string | null
+  peerEmployeeId?: string | null
+  peerName?: string | null
+  peerAvatar?: string | null
+  groupTitle?: string | null
+  groupMembers?: { userId: string; name: string; avatar?: string | null }[]
+  unreadCount?: number
+  lastMessageAt?: string | null
+  lastMessagePreview?: string | null
 }
 
 export interface Attachment {

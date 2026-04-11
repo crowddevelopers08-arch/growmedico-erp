@@ -3,12 +3,21 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { pushNotification } from "@/lib/notifications"
+import { parseDirectChannelName } from "@/lib/chat"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: channelId } = await params
+  const channel = await prisma.channel.findUnique({ where: { id: channelId } })
+  if (!channel) return NextResponse.json({ error: "Channel not found" }, { status: 404 })
+
+  const directIds = parseDirectChannelName(channel.name)
+  if (directIds && !directIds.includes(session.user.id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const { searchParams } = new URL(req.url)
   const after = searchParams.get("after")
 
@@ -51,6 +60,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: channelId } = await params
+  const channel = await prisma.channel.findUnique({ where: { id: channelId } })
+  if (!channel) return NextResponse.json({ error: "Channel not found" }, { status: 404 })
+
+  const directIds = parseDirectChannelName(channel.name)
+  if (directIds && !directIds.includes(session.user.id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const body = await req.json()
   const { content, audioContent, attachments, mentions } = body
 
@@ -79,7 +96,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   })
 
   if (mentions && mentions.length > 0) {
-    const channel = await prisma.channel.findUnique({ where: { id: channelId } })
     const preview = content?.trim()
       ? content.trim().slice(0, 80)
       : audioContent
@@ -94,6 +110,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           link: `/chat`,
         }).catch(() => {})
       }
+    }
+  }
+
+  if (directIds) {
+    const otherUserId = directIds.find((userId) => userId !== session.user.id)
+    if (otherUserId) {
+      const preview = content?.trim()
+        ? content.trim().slice(0, 80)
+        : audioContent
+        ? "[Voice message]"
+        : "[Attachment]"
+      await pushNotification(otherUserId, {
+        type: "message",
+        title: `New message from ${senderName}`,
+        message: preview,
+        link: `/chat`,
+      }).catch(() => {})
     }
   }
 
