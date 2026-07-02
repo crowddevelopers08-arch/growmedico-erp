@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Bell, Search, Plus, UserPlus, UserCircle, CalendarPlus, Clock, FileText, AtSign } from "lucide-react"
+import { Bell, Search, Plus, UserPlus, UserCircle, CalendarPlus, Clock, FileText, AtSign, ClipboardList, Handshake } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -20,13 +20,19 @@ import { useHR } from "@/lib/hr-context"
 import { EmployeeDialog } from "@/components/employee-dialog"
 import { LeaveRequestDialog } from "@/components/leave-request-dialog"
 
+const notificationIcons: Record<string, typeof AtSign> = {
+  mention: AtSign,
+  task_assigned: ClipboardList,
+  task_collaborator: Handshake,
+}
+
 export function DashboardHeader() {
   const router = useRouter()
   const { data: session } = useSession()
   const { leaveRequests, employees } = useHR()
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false)
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
-  const [mentionNotifs, setMentionNotifs] = useState<any[]>([])
+  const [activityNotifs, setActivityNotifs] = useState<any[]>([])
 
   const isAdmin = session?.user?.role === "ADMIN"
 
@@ -34,26 +40,30 @@ export function DashboardHeader() {
     .filter((r) => r.status === "pending")
     .slice(0, 5)
 
-  const loadMentionNotifs = useCallback(async () => {
+  const loadActivityNotifs = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications")
       if (!res.ok) return
       const all: any[] = await res.json()
-      setMentionNotifs(all.filter((n) => n.type === "mention" && !n.read))
+      setActivityNotifs(all.filter((n) => n.type in notificationIcons && !n.read))
     } catch {}
   }, [])
 
   useEffect(() => {
     if (!session) return
-    loadMentionNotifs()
-    const handler = () => loadMentionNotifs()
+    loadActivityNotifs()
+    const handler = () => loadActivityNotifs()
     window.addEventListener("focus", handler)
-    return () => window.removeEventListener("focus", handler)
-  }, [session, loadMentionNotifs])
+    const pollId = setInterval(handler, 10000)
+    return () => {
+      window.removeEventListener("focus", handler)
+      clearInterval(pollId)
+    }
+  }, [session, loadActivityNotifs])
 
   const handleMarkAllRead = async () => {
     await fetch("/api/notifications", { method: "PATCH" })
-    setMentionNotifs([])
+    setActivityNotifs([])
   }
 
   const adminQuickActions = [
@@ -114,7 +124,7 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative size-9">
                 <Bell className="size-4 text-muted-foreground" />
-                {(pendingLeaves.length > 0 || mentionNotifs.length > 0) && (
+                {(pendingLeaves.length > 0 || activityNotifs.length > 0) && (
                   <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-chart-1" />
                 )}
                 <span className="sr-only">Notifications</span>
@@ -124,12 +134,12 @@ export function DashboardHeader() {
               <DropdownMenuLabel className="flex items-center justify-between">
                 Notifications
                 <div className="flex items-center gap-1.5">
-                  {(pendingLeaves.length > 0 || mentionNotifs.length > 0) && (
+                  {(pendingLeaves.length > 0 || activityNotifs.length > 0) && (
                     <Badge variant="secondary" className="text-xs">
-                      {pendingLeaves.length + mentionNotifs.length} new
+                      {pendingLeaves.length + activityNotifs.length} new
                     </Badge>
                   )}
-                  {mentionNotifs.length > 0 && (
+                  {activityNotifs.length > 0 && (
                     <button
                       className="text-[10px] text-muted-foreground hover:text-foreground underline"
                       onClick={handleMarkAllRead}
@@ -141,20 +151,23 @@ export function DashboardHeader() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
 
-              {/* Mention notifications first */}
-              {mentionNotifs.map((notif) => (
-                <DropdownMenuItem
-                  key={notif.id}
-                  className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                  onClick={() => { if (notif.link) router.push(notif.link) }}
-                >
-                  <div className="flex items-center gap-2">
-                    <AtSign className="size-3.5 text-primary shrink-0" />
-                    <span className="font-medium text-sm">{notif.title}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground pl-5 line-clamp-2">{notif.message}</p>
-                </DropdownMenuItem>
-              ))}
+              {/* Mentions, task assignments, and collaborator adds */}
+              {activityNotifs.map((notif) => {
+                const Icon = notificationIcons[notif.type] ?? AtSign
+                return (
+                  <DropdownMenuItem
+                    key={notif.id}
+                    className="flex flex-col items-start gap-1 p-3 cursor-pointer"
+                    onClick={() => { if (notif.link) router.push(notif.link) }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className="size-3.5 text-primary shrink-0" />
+                      <span className="font-medium text-sm">{notif.title}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-5 line-clamp-2">{notif.message}</p>
+                  </DropdownMenuItem>
+                )
+              })}
 
               {/* Leave notifications */}
               {pendingLeaves.map((req) => {
@@ -179,7 +192,7 @@ export function DashboardHeader() {
                 )
               })}
 
-              {pendingLeaves.length === 0 && mentionNotifs.length === 0 && (
+              {pendingLeaves.length === 0 && activityNotifs.length === 0 && (
                 <DropdownMenuItem className="text-center justify-center text-sm text-muted-foreground py-4">
                   No pending notifications
                 </DropdownMenuItem>

@@ -42,6 +42,19 @@ async function validateMemberIds(memberIds: string[]) {
   return count === memberIds.length
 }
 
+function normalizeStages(value: unknown) {
+  if (!Array.isArray(value)) return []
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  )
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   const canManageProjects = session?.user.role === "ADMIN" || session?.user.role === "MANAGER"
@@ -51,25 +64,38 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params
   const body = await req.json()
-  const memberIds = normalizeMemberIds(body.memberIds)
-
-  if (!(await validateMemberIds(memberIds))) {
-    return NextResponse.json({ error: "One or more selected members are invalid" }, { status: 400 })
-  }
 
   const project = await prisma.clientProject.findUnique({ where: { id } })
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 })
   }
 
+  const data: Record<string, unknown> = {}
+
+  if (body.memberIds !== undefined) {
+    const memberIds = normalizeMemberIds(body.memberIds)
+
+    if (!(await validateMemberIds(memberIds))) {
+      return NextResponse.json({ error: "One or more selected members are invalid" }, { status: 400 })
+    }
+
+    data.members = {
+      deleteMany: {},
+      create: memberIds.map((employeeId) => ({ employeeId })),
+    }
+  }
+
+  if (body.stages !== undefined) {
+    const stages = normalizeStages(body.stages)
+    if (stages.length === 0) {
+      return NextResponse.json({ error: "At least one stage is required" }, { status: 400 })
+    }
+    data.stages = stages
+  }
+
   const updated = await prisma.clientProject.update({
     where: { id },
-    data: {
-      members: {
-        deleteMany: {},
-        create: memberIds.map((employeeId) => ({ employeeId })),
-      },
-    },
+    data,
     include: memberInclude,
   })
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getUserIdsForEmployees, pushNotification } from "@/lib/notifications"
 
 async function getAssignerDirectory(assignedByIds: string[]) {
   if (!assignedByIds.length) return new Map<string, { name: string | null; avatar: string | null }>()
@@ -42,6 +43,19 @@ async function getAssignerDirectory(assignedByIds: string[]) {
   return directory
 }
 
+function normalizeEmployeeIds(value: unknown) {
+  if (!Array.isArray(value)) return []
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  )
+}
+
 async function isProjectMember(projectId: string, employeeId: string) {
   const membership = await prisma.projectMember.findUnique({
     where: {
@@ -61,8 +75,15 @@ export async function GET(req: NextRequest) {
 
   const canManageTasks = session.user.role === "ADMIN" || session.user.role === "MANAGER"
 
-  // Admins and managers see all tasks; employees see only their own
-  const where = canManageTasks ? {} : { assignedToId: session.user.employeeId ?? "" }
+  // Admins and managers see all tasks; employees see tasks they're assigned to or collaborating on
+  const where = canManageTasks
+    ? {}
+    : {
+        OR: [
+          { assignedToId: session.user.employeeId ?? "" },
+          { collaborators: { has: session.user.employeeId ?? "" } },
+        ],
+      }
 
   const tasks = await prisma.task.findMany({
     where,
@@ -73,6 +94,9 @@ export async function GET(req: NextRequest) {
           name: true,
           clientName: true,
         },
+      },
+      _count: {
+        select: { comments: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -89,20 +113,31 @@ export async function GET(req: NextRequest) {
       assignedByName: task.assignedByName ?? assignerDirectory.get(task.assignedById)?.name ?? null,
       assignedByAvatar: task.assignedByAvatar ?? assignerDirectory.get(task.assignedById)?.avatar ?? null,
       stage: task.stage ?? "Unstaged Tasks",
+      commentCount: task._count.comments,
       project: undefined,
+      _count: undefined,
     }))
   )
 }
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const canManageTasks = session?.user.role === "ADMIN" || session?.user.role === "MANAGER"
-  if (!session || !canManageTasks) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const canManageTasks = session.user.role === "ADMIN" || session.user.role === "MANAGER"
   const body = await req.json()
   const { title, description, assignedToId, priority, dueDate, projectId, stage } = body
+
+  // Anyone can create a self task (assigned only to themselves); assigning
+  // to someone else, or adding collaborators, still requires ADMIN/MANAGER.
+  const isSelfAssignment = Boolean(session.user.employeeId) && assignedToId === session.user.employeeId
+  if (!canManageTasks && !isSelfAssignment) {
+    return NextResponse.json({ error: "You can only create tasks assigned to yourself" }, { status: 403 })
+  }
+
+  const collaboratorIds = canManageTasks
+    ? normalizeEmployeeIds(body.collaborators).filter((id) => id !== assignedToId)
+    : []
 
   if (!title || !assignedToId || !projectId) {
     return NextResponse.json({ error: "Title, assigned employee, and project are required" }, { status: 400 })
@@ -131,6 +166,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Task can only be assigned to a project member" }, { status: 400 })
   }
 
+  const memberIds = new Set(project.members.map((member) => member.employeeId))
+  if (!collaboratorIds.every((id) => memberIds.has(id))) {
+    return NextResponse.json({ error: "Collaborators must be project members" }, { status: 400 })
+  }
+
   const assigner = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
@@ -153,9 +193,36 @@ export async function POST(req: NextRequest) {
       assignedByName: assigner?.employee?.name ?? session.user.name ?? null,
       assignedByAvatar: assigner?.employee?.avatar ?? session.user.image ?? null,
       priority: priority ?? "medium",
-      stage: stage?.trim() || "Unstaged Tasks",
+      stage: stage?.trim() || project.stages[0] || "Unstaged Tasks",
       dueDate: dueDate ?? null,
+      collaborators: collaboratorIds,
     },
   })
+
+  const assignerName = assigner?.employee?.name ?? session.user.name ?? "Someone"
+  const userIdByEmployeeId = await getUserIdsForEmployees([assignedToId, ...collaboratorIds])
+
+  const assigneeUserId = userIdByEmployeeId.get(assignedToId)
+  if (assigneeUserId && assigneeUserId !== session.user.id) {
+    await pushNotification(assigneeUserId, {
+      type: "task_assigned",
+      title: `New task assigned: ${title}`,
+      message: `${assignerName} assigned you a task in ${project.name}.`,
+      link: "/tasks",
+    }).catch(() => {})
+  }
+
+  for (const collaboratorId of collaboratorIds) {
+    const userId = userIdByEmployeeId.get(collaboratorId)
+    if (userId && userId !== session.user.id) {
+      await pushNotification(userId, {
+        type: "task_collaborator",
+        title: `Added as collaborator: ${title}`,
+        message: `${assignerName} added you as a collaborator in ${project.name}.`,
+        link: "/tasks?list=collaborator",
+      }).catch(() => {})
+    }
+  }
+
   return NextResponse.json(task)
 }

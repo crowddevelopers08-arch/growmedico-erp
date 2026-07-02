@@ -213,7 +213,11 @@ function ChatPageContent() {
     if (!res.ok) return
     const data: Message[] = await res.json()
     if (data.length === 0) return
-    if (append) setMessages((prev) => [...prev, ...data])
+    if (append) setMessages((prev) => {
+      const existingIds = new Set(prev.map((m) => m.id))
+      const newMsgs = data.filter((m) => !existingIds.has(m.id))
+      return newMsgs.length === 0 ? prev : [...prev, ...newMsgs]
+    })
     else setMessages(data)
     lastMessageTime.current = data[data.length - 1].createdAt
   }, [])
@@ -224,6 +228,9 @@ function ChatPageContent() {
 
   useEffect(() => {
     if (!selectedChannel) return
+    setChannels((prev) =>
+      prev.map((ch) => ch.id === selectedChannel.id ? { ...ch, unreadCount: 0 } : ch)
+    )
     lastMessageTime.current = null
     setMessages([])
     void loadMessages(selectedChannel.id)

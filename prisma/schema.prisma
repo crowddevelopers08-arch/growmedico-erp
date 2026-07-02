@@ -125,10 +125,12 @@ model Task {
   priority     String         @default("medium")
   status       String         @default("pending")
   stage        String         @default("Unstaged Tasks")
-  dueDate      String?
-  comments     TaskComment[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  dueDate       String?
+  collaborators String[]       @default([])
+  attachments   Json?
+  comments      TaskComment[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model ClientProject {
@@ -140,6 +142,7 @@ model ClientProject {
   priority    String          @default("medium")
   dueDate     String?
   createdById String
+  stages      String[]        @default(["Unstaged Tasks"])
   tasks       Task[]
   members     ProjectMember[]
   createdAt   DateTime        @default(now())

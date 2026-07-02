@@ -7,6 +7,22 @@ interface NotificationData {
   link?: string
 }
 
+export async function getUserIdsForEmployees(employeeIds: string[]) {
+  const uniqueIds = Array.from(new Set(employeeIds.filter(Boolean)))
+  if (!uniqueIds.length) return new Map<string, string>()
+
+  const users = await prisma.user.findMany({
+    where: { employeeId: { in: uniqueIds } },
+    select: { id: true, employeeId: true },
+  })
+
+  const map = new Map<string, string>()
+  users.forEach((user) => {
+    if (user.employeeId) map.set(user.employeeId, user.id)
+  })
+  return map
+}
+
 export async function pushNotification(userId: string, data: NotificationData) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { notifications: true } })
   if (!user) return

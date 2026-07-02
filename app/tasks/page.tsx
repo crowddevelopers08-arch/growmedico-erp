@@ -5,8 +5,10 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Plus, Search, Trash2, CheckCircle2, Clock, AlertCircle,
   CircleDot, CalendarIcon, ChevronDown, ClipboardList, MessageSquare, BriefcaseBusiness,
+  UserCircle, Handshake, ListChecks, User,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -50,6 +52,15 @@ const statusConfig = {
 const statuses: TaskStatus[] = ["pending", "in_progress", "completed", "cancelled"]
 const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"]
 
+type ListView = "all" | "assigned" | "collaborator" | "self"
+
+const listViews: { id: ListView; label: string; icon: typeof ListChecks }[] = [
+  { id: "all", label: "All Tasks", icon: ListChecks },
+  { id: "assigned", label: "Assigned to me", icon: UserCircle },
+  { id: "collaborator", label: "Collaborator Tasks", icon: Handshake },
+  { id: "self", label: "Self Task", icon: User },
+]
+
 function projectLabel(task: Task) {
   if (task.clientName && task.projectName) return `${task.clientName} - ${task.projectName}`
   if (task.projectName) return task.projectName
@@ -74,6 +85,11 @@ function StatusBadge({ status }: { status: TaskStatus }) {
 function TasksPageContent() {
   const { data: session } = useSession()
   const { employees } = useHR()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const listParam = searchParams.get("list")
+  const activeList: ListView =
+    listParam === "assigned" || listParam === "collaborator" || listParam === "self" ? listParam : "all"
   const isAdmin = session?.user?.role === "ADMIN"
   const canManageTasks = isAdmin || session?.user?.role === "MANAGER"
 
@@ -94,6 +110,7 @@ function TasksPageContent() {
   const [formDesc, setFormDesc] = useState("")
   const [formProjectId, setFormProjectId] = useState("")
   const [formAssignees, setFormAssignees] = useState<string[]>([])
+  const [formCollaboratorIds, setFormCollaboratorIds] = useState<string[]>([])
   const [formPriority, setFormPriority] = useState<TaskPriority>("medium")
   const [formDueDate, setFormDueDate] = useState("")
 
@@ -137,7 +154,8 @@ function TasksPageContent() {
     setFormTitle("")
     setFormDesc("")
     setFormProjectId("")
-    setFormAssignees([])
+    setFormAssignees(activeList === "self" && session?.user?.employeeId ? [session.user.employeeId] : [])
+    setFormCollaboratorIds([])
     setFormPriority("medium")
     setFormDueDate("")
     setDialogOpen(true)
@@ -149,9 +167,16 @@ function TasksPageContent() {
     setFormDesc(task.description ?? "")
     setFormProjectId(task.projectId ?? "")
     setFormAssignees([task.assignedToId])
+    setFormCollaboratorIds(task.collaborators ?? [])
     setFormPriority(task.priority)
     setFormDueDate(task.dueDate ?? "")
     setDialogOpen(true)
+  }
+
+  const toggleFormCollaborator = (employeeId: string, checked: boolean) => {
+    setFormCollaboratorIds((prev) =>
+      checked ? (prev.includes(employeeId) ? prev : [...prev, employeeId]) : prev.filter((id) => id !== employeeId)
+    )
   }
 
   useEffect(() => {
@@ -166,6 +191,25 @@ function TasksPageContent() {
     }
   }, [assignableProjectMembers, dialogOpen, formAssignees])
 
+  useEffect(() => {
+    if (!dialogOpen) return
+
+    const validCollaborators = formCollaboratorIds.filter((employeeId) =>
+      assignableProjectMembers.some((employee) => employee.id === employeeId)
+    )
+
+    if (validCollaborators.length !== formCollaboratorIds.length) {
+      setFormCollaboratorIds(validCollaborators)
+    }
+  }, [assignableProjectMembers, dialogOpen, formCollaboratorIds])
+
+  useEffect(() => {
+    if (!dialogOpen || editTask || activeList !== "self") return
+    const selfId = session?.user?.employeeId
+    const isValidMember = selfId && assignableProjectMembers.some((employee) => employee.id === selfId)
+    setFormAssignees(isValidMember ? [selfId] : [])
+  }, [dialogOpen, editTask, activeList, assignableProjectMembers, session?.user?.employeeId])
+
   const handleSave = async () => {
     if (!formTitle.trim() || formAssignees.length === 0 || !formProjectId) return
     setSaving(true)
@@ -177,6 +221,7 @@ function TasksPageContent() {
           description: formDesc.trim() || null,
           projectId: formProjectId,
           assignedToId: formAssignees[0],
+          collaborators: formCollaboratorIds,
           priority: formPriority,
           dueDate: formDueDate || null,
         }
@@ -194,6 +239,7 @@ function TasksPageContent() {
             description: formDesc.trim() || null,
             projectId: formProjectId,
             assignedToId,
+            collaborators: formCollaboratorIds,
             priority: formPriority,
             dueDate: formDueDate || null,
           }
@@ -243,7 +289,27 @@ function TasksPageContent() {
     }
   }
 
-  const filtered = tasks.filter((task) => {
+  const employeeId = session?.user?.employeeId
+  const userId = session?.user?.id
+  const isSelfTask = (task: Task) => Boolean(employeeId) && task.assignedToId === employeeId && task.assignedById === userId
+
+  const listCounts = useMemo(() => ({
+    all: tasks.length,
+    assigned: employeeId ? tasks.filter((task) => task.assignedToId === employeeId && !isSelfTask(task)).length : 0,
+    collaborator: employeeId ? tasks.filter((task) => task.collaborators?.includes(employeeId)).length : 0,
+    self: employeeId ? tasks.filter(isSelfTask).length : 0,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [employeeId, userId, tasks])
+
+  const listScopedTasks = useMemo(() => {
+    if (activeList === "collaborator") return tasks.filter((task) => employeeId && task.collaborators?.includes(employeeId))
+    if (activeList === "assigned") return tasks.filter((task) => employeeId && task.assignedToId === employeeId && !isSelfTask(task))
+    if (activeList === "self") return tasks.filter(isSelfTask)
+    return tasks
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeList, employeeId, userId, tasks])
+
+  const filtered = listScopedTasks.filter((task) => {
     const matchesTab = activeTab === "all" || task.status === activeTab
     const matchesProject = selectedProjectId === "all" || task.projectId === selectedProjectId
     const employee = employees.find((e) => e.id === task.assignedToId)
@@ -259,29 +325,70 @@ function TasksPageContent() {
   })
 
   const counts = {
-    all: tasks.length,
-    pending: tasks.filter((task) => task.status === "pending").length,
-    in_progress: tasks.filter((task) => task.status === "in_progress").length,
-    completed: tasks.filter((task) => task.status === "completed").length,
-    cancelled: tasks.filter((task) => task.status === "cancelled").length,
+    all: listScopedTasks.length,
+    pending: listScopedTasks.filter((task) => task.status === "pending").length,
+    in_progress: listScopedTasks.filter((task) => task.status === "in_progress").length,
+    completed: listScopedTasks.filter((task) => task.status === "completed").length,
+    cancelled: listScopedTasks.filter((task) => task.status === "cancelled").length,
+  }
+
+  const listHeadings: Record<ListView, { title: string; subtitle: string }> = {
+    all: {
+      title: "All Tasks",
+      subtitle: canManageTasks ? "Manage client projects and assign delivery work to your team." : "View and update your assigned tasks.",
+    },
+    assigned: { title: "Assigned to Me", subtitle: "Tasks assigned directly to you." },
+    collaborator: { title: "My Collaborations", subtitle: "Tasks where you're a collaborator rather than the primary assignee." },
+    self: { title: "Self Task", subtitle: "Tasks you assigned to yourself." },
   }
 
   const formatDate = (value: string) => new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
   const isOverdue = (task: Task) => task.dueDate && task.status !== "completed" && task.status !== "cancelled" && new Date(task.dueDate) < new Date()
+  const isSelfTaskDialog = editTask ? isSelfTask(editTask) : activeList === "self"
 
   return (
-    <>
+    <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <aside className="h-fit rounded-xl border border-border/50 bg-card p-2 lg:sticky lg:top-4">
+        <p className="px-2 pb-2 pt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">List</p>
+        <div className="space-y-1">
+          {listViews.map((view) => {
+            const Icon = view.icon
+            const count = listCounts[view.id]
+            const active = activeList === view.id
+            return (
+              <button
+                key={view.id}
+                type="button"
+                onClick={() => router.push(view.id === "all" ? "/tasks" : `/tasks?list=${view.id}`)}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  active ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                }`}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span className="flex-1 text-left truncate">{view.label}</span>
+                {count > 0 && (
+                  <span className={`grid min-w-5 place-items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}>
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </aside>
+
+      <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-          <p className="text-sm text-muted-foreground">
-            {canManageTasks ? "Manage client projects and assign delivery work to your team." : "View and update your assigned tasks."}
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{listHeadings[activeList].title}</h1>
+          <p className="text-sm text-muted-foreground">{listHeadings[activeList].subtitle}</p>
         </div>
-        {canManageTasks && (
+        {(canManageTasks || activeList === "self") && (
           <div className="flex gap-2 sm:shrink-0">
             <Button onClick={openAdd}>
-              <Plus className="mr-2 size-4" />Assign Task
+              <Plus className="mr-2 size-4" />{activeList === "self" ? "Add Self Task" : "Assign Task"}
             </Button>
           </div>
         )}
@@ -417,6 +524,7 @@ function TasksPageContent() {
                       <Button variant="ghost" size="sm" className="h-8 px-2 gap-1 text-muted-foreground hover:text-foreground"
                         onClick={(e) => { e.stopPropagation(); setDetailTask(task); setDetailOpen(true) }}>
                         <MessageSquare className="size-3.5" />
+                        {task.commentCount ? <span className="text-xs">{task.commentCount}</span> : null}
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -431,7 +539,7 @@ function TasksPageContent() {
                               {statusConfig[status].label}
                             </DropdownMenuItem>
                           ))}
-                          {canManageTasks && (
+                          {(canManageTasks || isSelfTask(task)) && (
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => openEdit(task)}>Edit Task</DropdownMenuItem>
@@ -457,7 +565,8 @@ function TasksPageContent() {
         onOpenChange={setDetailOpen}
         employeeName={employees.find((e) => e.id === detailTask?.assignedToId)?.name}
         employeeAvatar={employees.find((e) => e.id === detailTask?.assignedToId)?.avatar ?? undefined}
-        isAdmin={canManageTasks}
+        employees={employees}
+        isAdmin={canManageTasks || (detailTask ? isSelfTask(detailTask) : false)}
         onStatusChange={handleStatusChange}
         onEditTask={(task) => { setDetailOpen(false); openEdit(task) }}
       />
@@ -465,8 +574,14 @@ function TasksPageContent() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editTask ? "Edit Task" : "Assign Task"}</DialogTitle>
-            <DialogDescription>{editTask ? "Update task details." : "Assign a task to a team member under a client project."}</DialogDescription>
+            <DialogTitle>{editTask ? "Edit Task" : isSelfTaskDialog ? "Add Self Task" : "Assign Task"}</DialogTitle>
+            <DialogDescription>
+              {editTask
+                ? "Update task details."
+                : isSelfTaskDialog
+                ? "Create a task assigned to yourself under a client project."
+                : "Assign a task to a team member under a client project."}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
@@ -488,51 +603,60 @@ function TasksPageContent() {
               <Label>Description</Label>
               <Textarea placeholder="Optional description..." rows={3} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Assign To *</Label>
-                {editTask ? (
-                  <Select value={formAssignees[0] ?? ""} onValueChange={(value) => setFormAssignees([value])}>
-                    <SelectTrigger><SelectValue placeholder={assignableProjectMembers.length === 0 ? "Add project members first" : "Select project member"} /></SelectTrigger>
-                    <SelectContent>
-                      {assignableProjectMembers.map((employee) => (
-                        <SelectItem key={employee.id} value={employee.id}>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="size-5"><AvatarImage src={employee.avatar} /><AvatarFallback className="text-[9px]">{employee.initials}</AvatarFallback></Avatar>
+            {isSelfTaskDialog && !editTask && (
+              !employeeId ? (
+                <p className="text-xs text-destructive">Your account isn&apos;t linked to an employee profile, so you can&apos;t create self tasks. Ask an admin to link your login to an employee record.</p>
+              ) : formProjectId && !assignableProjectMembers.some((employee) => employee.id === employeeId) ? (
+                <p className="text-xs text-destructive">You&apos;re not a member of this project, so you can&apos;t self-assign a task here. Pick a project you belong to, or ask an admin to add you as a member.</p>
+              ) : null
+            )}
+            <div className={isSelfTaskDialog ? "grid gap-3" : "grid grid-cols-2 gap-3"}>
+              {!isSelfTaskDialog && (
+                <div className="space-y-2">
+                  <Label>Assign To *</Label>
+                  {editTask ? (
+                    <Select value={formAssignees[0] ?? ""} onValueChange={(value) => setFormAssignees([value])}>
+                      <SelectTrigger><SelectValue placeholder={assignableProjectMembers.length === 0 ? "Add project members first" : "Select project member"} /></SelectTrigger>
+                      <SelectContent>
+                        {assignableProjectMembers.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="size-5"><AvatarImage src={employee.avatar} /><AvatarFallback className="text-[9px]">{employee.initials}</AvatarFallback></Avatar>
+                              {employee.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start font-normal" disabled={assignableProjectMembers.length === 0}>
+                          {assignableProjectMembers.length === 0 ? "Add project members first" : formAssignees.length === 0 ? "Select project members" : `${formAssignees.length} selected`}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
+                        {assignableProjectMembers.map((employee) => (
+                          <DropdownMenuCheckboxItem
+                            key={employee.id}
+                            checked={formAssignees.includes(employee.id)}
+                            onCheckedChange={(checked) => {
+                              setFormAssignees((prev) =>
+                                checked ? [...prev, employee.id] : prev.filter((id) => id !== employee.id)
+                              )
+                            }}
+                          >
                             {employee.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start font-normal" disabled={assignableProjectMembers.length === 0}>
-                        {assignableProjectMembers.length === 0 ? "Add project members first" : formAssignees.length === 0 ? "Select project members" : `${formAssignees.length} selected`}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
-                      {assignableProjectMembers.map((employee) => (
-                        <DropdownMenuCheckboxItem
-                          key={employee.id}
-                          checked={formAssignees.includes(employee.id)}
-                          onCheckedChange={(checked) => {
-                            setFormAssignees((prev) =>
-                              checked ? [...prev, employee.id] : prev.filter((id) => id !== employee.id)
-                            )
-                          }}
-                        >
-                          {employee.name}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {assignableProjectMembers.length === 0 && (
-                  <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>
-                )}
-              </div>
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                  {assignableProjectMembers.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>
+                  )}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Priority</Label>
                 <Select value={formPriority} onValueChange={(value) => setFormPriority(value as TaskPriority)}>
@@ -543,6 +667,30 @@ function TasksPageContent() {
                 </Select>
               </div>
             </div>
+            {!isSelfTaskDialog && (
+              <div className="space-y-2">
+                <Label>Collaborators</Label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start font-normal" disabled={assignableProjectMembers.length === 0}>
+                      {assignableProjectMembers.length === 0 ? "Add project members first" : formCollaboratorIds.length === 0 ? "Select collaborators" : `${formCollaboratorIds.length} selected`}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
+                    {assignableProjectMembers.map((employee) => (
+                      <DropdownMenuCheckboxItem
+                        key={employee.id}
+                        checked={formCollaboratorIds.includes(employee.id)}
+                        onCheckedChange={(checked) => toggleFormCollaborator(employee.id, checked === true)}
+                      >
+                        {employee.name}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <p className="text-xs text-muted-foreground">Optional teammates who help on this task alongside the assignee.</p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Due Date</Label>
               <Input type="date" value={formDueDate} onChange={(e) => setFormDueDate(e.target.value)} />
@@ -569,7 +717,8 @@ function TasksPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+      </div>
+    </div>
   )
 }
 

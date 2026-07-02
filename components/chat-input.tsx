@@ -146,15 +146,18 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
   const handleSend = async () => {
     if (sending || disabled) return
     if (!content.trim() && !pendingAudio && attachments.length === 0) return
+
+    const dataToSend = {
+      content: content.trim(),
+      audioContent: pendingAudio,
+      attachments: attachments.length > 0 ? attachments : undefined,
+      mentions: mentionIds.length > 0 ? mentionIds : undefined,
+    }
+
+    setContent(""); setPendingAudio(null); setAttachments([]); setMentionIds([]); setMentionState(null)
     setSending(true)
     try {
-      await onSend({
-        content: content.trim(),
-        audioContent: pendingAudio,
-        attachments: attachments.length > 0 ? attachments : undefined,
-        mentions: mentionIds.length > 0 ? mentionIds : undefined,
-      })
-      setContent(""); setPendingAudio(null); setAttachments([]); setMentionIds([]); setMentionState(null)
+      await onSend(dataToSend)
     } finally {
       setSending(false)
     }

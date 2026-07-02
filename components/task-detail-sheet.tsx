@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { ChatInput, type MentionUser, type SendData, type Attachment } from "@/components/chat-input"
-import type { Task, TaskStatus, TaskPriority, TaskComment } from "@/lib/types"
+import type { Task, TaskStatus, TaskPriority, TaskComment, Employee } from "@/lib/types"
 
 interface TaskDetailSheetProps {
   task: Task | null
@@ -32,6 +32,7 @@ interface TaskDetailSheetProps {
   onOpenChange: (open: boolean) => void
   employeeName?: string
   employeeAvatar?: string
+  employees?: Employee[]
   isAdmin: boolean
   onStatusChange: (task: Task, status: TaskStatus) => Promise<void>
   onEditTask?: (task: Task) => void
@@ -146,7 +147,7 @@ function CommentAudioPlayer({ src }: { src: string }) {
 }
 
 export function TaskDetailSheet({
-  task, open, onOpenChange, employeeName, employeeAvatar, isAdmin, onStatusChange, onEditTask,
+  task, open, onOpenChange, employeeName, employeeAvatar, employees, isAdmin, onStatusChange, onEditTask,
 }: TaskDetailSheetProps) {
   const { data: session } = useSession()
   const [comments, setComments] = useState<TaskComment[]>([])
@@ -234,6 +235,9 @@ export function TaskDetailSheet({
   )
   const assignerName = task.assignedByName ?? assigner?.name
   const assignerAvatar = task.assignedByAvatar ?? assigner?.avatar
+  const collaboratorEmployees = (task.collaborators ?? [])
+    .map((employeeId) => employees?.find((employee) => employee.id === employeeId))
+    .filter((employee): employee is Employee => Boolean(employee))
 
   return (
     <>
@@ -279,6 +283,23 @@ export function TaskDetailSheet({
               <PersonCard label="Assigner" name={assignerName} avatar={assignerAvatar} />
               <PersonCard label="Assignee" name={employeeName ?? "Unassigned"} avatar={employeeAvatar} />
             </div>
+
+            {collaboratorEmployees.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Collaborators</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {collaboratorEmployees.map((employee) => (
+                    <div key={employee.id} className="flex items-center gap-2 rounded-full border bg-muted/40 px-2.5 py-1 text-xs text-foreground">
+                      <Avatar className="size-5">
+                        <AvatarImage src={employee.avatar} />
+                        <AvatarFallback className="text-[8px]">{employee.initials}</AvatarFallback>
+                      </Avatar>
+                      <span>{employee.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
               {task.dueDate && (

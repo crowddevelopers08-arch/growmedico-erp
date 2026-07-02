@@ -7,11 +7,13 @@ import {
   ClipboardList,
   FolderKanban,
   Info,
+  Layers,
   Plus,
   Search,
   TableProperties,
   Trash2,
   Users,
+  X,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -36,7 +38,7 @@ import type { ClientProject, Employee, ProjectStatus, Task, TaskPriority, TaskSt
 type ProjectWithCount = ClientProject & { _count?: { tasks: number } }
 type ViewMode = "tasks" | "table" | "info"
 
-const defaultStages = ["Unstaged Tasks", "Onboarding", "Google My Business", "GTM", "Strategy Meet", "Copywriting", "Client Syncup"]
+const FALLBACK_STAGE = "Unstaged Tasks"
 
 const priorityClasses: Record<TaskPriority, string> = {
   low: "border-border bg-muted text-muted-foreground",
@@ -92,15 +94,17 @@ function MemberSelector({
   employees,
   selectedIds,
   onToggle,
+  label = "Project Members",
 }: {
   employees: Employee[]
   selectedIds: string[]
   onToggle: (employeeId: string, checked: boolean) => void
+  label?: string
 }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Label>Project Members</Label>
+        <Label>{label}</Label>
         <span className="text-xs text-muted-foreground">{selectedIds.length} selected</span>
       </div>
       <div className="max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-border bg-muted/30 p-3">
@@ -136,34 +140,39 @@ function ProjectsPageContent() {
   const [projectQuery, setProjectQuery] = useState("")
   const [taskQuery, setTaskQuery] = useState("")
   const [selectedProjectId, setSelectedProjectId] = useState("")
-  const [selectedStage, setSelectedStage] = useState(defaultStages[0])
+  const [selectedStage, setSelectedStage] = useState(FALLBACK_STAGE)
   const [viewMode, setViewMode] = useState<ViewMode>("tasks")
   const [detailTask, setDetailTask] = useState<Task | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [membersDialogOpen, setMembersDialogOpen] = useState(false)
+  const [stagesDialogOpen, setStagesDialogOpen] = useState(false)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [projectSaving, setProjectSaving] = useState(false)
   const [membersSaving, setMembersSaving] = useState(false)
+  const [stagesSaving, setStagesSaving] = useState(false)
   const [taskSaving, setTaskSaving] = useState(false)
   const [projectDeleting, setProjectDeleting] = useState(false)
   const [taskDeleting, setTaskDeleting] = useState(false)
 
   const [projectClientName, setProjectClientName] = useState("")
-  const [projectName, setProjectName] = useState("")
   const [projectDescription, setProjectDescription] = useState("")
   const [projectDueDate, setProjectDueDate] = useState("")
   const [projectPriority, setProjectPriority] = useState<TaskPriority>("medium")
   const [projectMemberIds, setProjectMemberIds] = useState<string[]>([])
 
+  const [editableStages, setEditableStages] = useState<string[]>([])
+  const [newStageName, setNewStageName] = useState("")
+
   const [taskTitle, setTaskTitle] = useState("")
   const [taskDescription, setTaskDescription] = useState("")
   const [taskAssigneeId, setTaskAssigneeId] = useState("")
-  const [taskStage, setTaskStage] = useState(defaultStages[0])
+  const [taskCollaboratorIds, setTaskCollaboratorIds] = useState<string[]>([])
   const [taskPriority, setTaskPriority] = useState<TaskPriority>("medium")
   const [taskStatus, setTaskStatus] = useState<TaskStatus>("pending")
   const [taskDueDate, setTaskDueDate] = useState("")
+  const [taskStageOverride, setTaskStageOverride] = useState<string | null>(null)
 
   const loadProjects = useCallback(async () => {
     const response = await fetch("/api/projects")
@@ -244,19 +253,18 @@ function ProjectsPageContent() {
       .filter((employee): employee is Employee => Boolean(employee))
   }, [employees, selectedProject])
 
-  const visibleStages = useMemo(() => {
-    const taskStages = selectedProjectTasks.map((task) => task.stage || defaultStages[0])
-    return Array.from(new Set(taskStages))
-  }, [selectedProjectTasks])
-
+  // The project's own managed stage list is the single source of truth for the board.
+  // Removing a stage reassigns its tasks elsewhere (see handleStagesSave), so this never
+  // needs to fall back to stray stage strings left on tasks.
   const availableStages = useMemo(() => {
-    const taskStages = tasks.map((task) => task.stage || defaultStages[0])
-    return Array.from(new Set([...defaultStages, ...taskStages]))
-  }, [tasks])
+    return selectedProject?.stages?.length ? selectedProject.stages : [FALLBACK_STAGE]
+  }, [selectedProject])
+
+  const visibleStages = availableStages
 
   useEffect(() => {
     if (visibleStages.length === 0) {
-      setSelectedStage(defaultStages[0])
+      setSelectedStage(FALLBACK_STAGE)
       return
     }
 
@@ -265,7 +273,7 @@ function ProjectsPageContent() {
     }
   }, [selectedStage, visibleStages])
 
-  const selectedStageTasks = selectedProjectTasks.filter((task) => (task.stage || defaultStages[0]) === selectedStage)
+  const selectedStageTasks = selectedProjectTasks.filter((task) => (task.stage || FALLBACK_STAGE) === selectedStage)
   const completedTasks = selectedProjectTasks.filter((task) => task.status === "completed").length
 
   const toggleProjectMember = (employeeId: string, checked: boolean) => {
@@ -276,7 +284,6 @@ function ProjectsPageContent() {
 
   const resetProjectForm = () => {
     setProjectClientName("")
-    setProjectName("")
     setProjectDescription("")
     setProjectDueDate("")
     setProjectPriority("medium")
@@ -288,11 +295,20 @@ function ProjectsPageContent() {
     setTaskTitle("")
     setTaskDescription("")
     setTaskAssigneeId("")
-    setTaskStage(visibleStages[0] ?? defaultStages[0])
+    setTaskCollaboratorIds([])
     setTaskPriority("medium")
     setTaskStatus("pending")
     setTaskDueDate("")
+    setTaskStageOverride(null)
   }
+
+  const openAddTaskForStage = (stage: string) => {
+    resetTaskForm()
+    setTaskStageOverride(stage)
+    setSelectedStage(stage)
+    setTaskDialogOpen(true)
+  }
+
   const openMembersDialog = () => {
     if (!selectedProject) return
     const explicitIds = selectedProject.members?.map((member) => member.employeeId) ?? []
@@ -301,9 +317,33 @@ function ProjectsPageContent() {
     setMembersDialogOpen(true)
   }
 
+  const toggleTaskCollaborator = (employeeId: string, checked: boolean) => {
+    setTaskCollaboratorIds((prev) =>
+      checked ? (prev.includes(employeeId) ? prev : [...prev, employeeId]) : prev.filter((id) => id !== employeeId)
+    )
+  }
+
+  const openStagesDialog = () => {
+    if (!selectedProject) return
+    setEditableStages(availableStages)
+    setNewStageName("")
+    setStagesDialogOpen(true)
+  }
+
+  const addEditableStage = () => {
+    const name = newStageName.trim()
+    if (!name || editableStages.includes(name)) return
+    setEditableStages((prev) => [...prev, name])
+    setNewStageName("")
+  }
+
+  const removeEditableStage = (stage: string) => {
+    setEditableStages((prev) => prev.filter((item) => item !== stage))
+  }
+
   const handleProjectCreate = async () => {
-    if (!projectClientName.trim() || !projectName.trim()) {
-      toast.error("Client name and project title are required")
+    if (!projectClientName.trim()) {
+      toast.error("Client name is required")
       return
     }
 
@@ -314,7 +354,7 @@ function ProjectsPageContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientName: projectClientName.trim(),
-          name: projectName.trim(),
+          name: projectClientName.trim(),
           description: projectDescription.trim() || null,
           dueDate: projectDueDate || null,
           priority: projectPriority,
@@ -364,6 +404,49 @@ function ProjectsPageContent() {
     }
   }
 
+  const handleStagesSave = async () => {
+    if (!selectedProject) return
+    if (editableStages.length === 0) {
+      toast.error("Add at least one stage")
+      return
+    }
+
+    setStagesSaving(true)
+    try {
+      const response = await fetch(`/api/projects/${selectedProject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stages: editableStages }),
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        toast.error(payload?.error ?? "Failed to update stages")
+        return
+      }
+
+      // Any task sitting in a stage that just got removed needs a new home,
+      // otherwise it'd be stuck showing a stage that no longer exists on the board.
+      const fallbackStage = editableStages[0]
+      const orphanedTasks = selectedProjectTasks.filter((task) => !editableStages.includes(task.stage || FALLBACK_STAGE))
+      if (orphanedTasks.length > 0) {
+        await Promise.all(orphanedTasks.map((task) =>
+          fetch(`/api/tasks/${task.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stage: fallbackStage }),
+          })
+        ))
+      }
+
+      await Promise.all([loadProjects(), loadTasks()])
+      setStagesDialogOpen(false)
+      toast.success(orphanedTasks.length > 0 ? `Stages updated · moved ${orphanedTasks.length} task${orphanedTasks.length === 1 ? "" : "s"} to "${fallbackStage}"` : "Stages updated")
+    } finally {
+      setStagesSaving(false)
+    }
+  }
+
   const handleTaskSave = async () => {
     if (!selectedProject || !taskTitle.trim() || !taskAssigneeId) {
       toast.error("Task title and assignee are required")
@@ -379,9 +462,10 @@ function ProjectsPageContent() {
           title: taskTitle.trim(),
           description: taskDescription.trim() || null,
           assignedToId: taskAssigneeId,
+          collaborators: taskCollaboratorIds,
           priority: taskPriority,
           status: taskStatus,
-          stage: taskStage,
+          stage: !editingTask ? taskStageOverride ?? undefined : undefined,
           dueDate: taskDueDate || null,
           projectId: selectedProject.id,
         }),
@@ -471,7 +555,7 @@ function ProjectsPageContent() {
     setTaskTitle(task.title)
     setTaskDescription(task.description ?? "")
     setTaskAssigneeId(task.assignedToId)
-    setTaskStage(task.stage || defaultStages[0])
+    setTaskCollaboratorIds(task.collaborators ?? [])
     setTaskPriority(task.priority)
     setTaskStatus(task.status)
     setTaskDueDate(task.dueDate ?? "")
@@ -492,6 +576,11 @@ function ProjectsPageContent() {
         : "")
     }
   }, [assignableProjectMembers, editingTask?.assignedToId, taskAssigneeId, taskDialogOpen])
+
+  useEffect(() => {
+    if (!taskDialogOpen) return
+    setTaskCollaboratorIds((prev) => prev.filter((id) => id !== taskAssigneeId && assignableProjectMembers.some((employee) => employee.id === id)))
+  }, [assignableProjectMembers, taskAssigneeId, taskDialogOpen])
 
   if (loading) {
     return <div className="grid min-h-[70vh] place-items-center rounded-[28px] border bg-card text-muted-foreground">Loading projects workspace...</div>
@@ -588,6 +677,7 @@ function ProjectsPageContent() {
                     <Button variant={viewMode === "table" ? "default" : "outline"} onClick={() => setViewMode("table")}><TableProperties className="mr-2 size-4" />Table</Button>
                     <Button variant={viewMode === "info" ? "default" : "outline"} onClick={() => setViewMode("info")}><Info className="mr-2 size-4" />Info</Button>
                     {canManageProjects && <Button variant="outline" className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" onClick={openMembersDialog}><Users className="mr-2 size-4" />Members</Button>}
+                    {canManageProjects && <Button variant="outline" className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" onClick={openStagesDialog}><Layers className="mr-2 size-4" />Manage Stages</Button>}
                     {canManageProjects && <Button variant="destructive" onClick={() => void handleProjectDelete()} loading={projectDeleting}><Trash2 className="mr-2 size-4" />Delete Project</Button>}
                     {canManageProjects && <Button onClick={() => { resetTaskForm(); setTaskDialogOpen(true) }}><Plus className="mr-2 size-4" />Add Task</Button>}
                   </div>
@@ -600,16 +690,32 @@ function ProjectsPageContent() {
                     <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                       <div className="grid w-full gap-3 sm:grid-cols-2 xl:flex xl:w-auto xl:flex-wrap">
                         {visibleStages.map((stage) => {
-                          const stageTasks = selectedProjectTasks.filter((task) => (task.stage || defaultStages[0]) === stage)
-                          return <button key={stage} type="button" onClick={() => setSelectedStage(stage)} className={cn("rounded-2xl border px-4 py-3 text-left transition-colors", selectedStage === stage ? "border-primary/30 bg-primary/10" : "bg-background/80 hover:border-primary/20 hover:bg-accent/40")}><p className="font-semibold">{stage}</p><p className="text-sm text-muted-foreground">{stageTasks.filter((task) => task.status === "completed").length}/{stageTasks.length} tasks</p></button>
+                          const stageTasks = selectedProjectTasks.filter((task) => (task.stage || FALLBACK_STAGE) === stage)
+                          return (
+                            <div key={stage} className="relative">
+                              <button type="button" onClick={() => setSelectedStage(stage)} className={cn("w-full rounded-2xl border px-4 py-3 pr-10 text-left transition-colors", selectedStage === stage ? "border-primary/30 bg-primary/10" : "bg-background/80 hover:border-primary/20 hover:bg-accent/40")}><p className="font-semibold">{stage}</p><p className="text-sm text-muted-foreground">{stageTasks.filter((task) => task.status === "completed").length}/{stageTasks.length} tasks</p></button>
+                              {canManageProjects && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-2 top-2 size-6 text-muted-foreground hover:text-foreground"
+                                  title={`Add task to ${stage}`}
+                                  onClick={(event) => { event.stopPropagation(); openAddTaskForStage(stage) }}
+                                >
+                                  <Plus className="size-4" />
+                                </Button>
+                              )}
+                            </div>
+                          )
                         })}
                       </div>
                       <div className="relative w-full xl:w-[280px]"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="Search tasks..." className="bg-background pl-9" /></div>
                     </div>
                     <div className="space-y-3 rounded-[26px] border bg-muted/20 p-3">
-                      {visibleStages.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No stages created yet. Create a task to show its stage here.</div> : selectedStageTasks.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No tasks in this stage yet.</div> : selectedStageTasks.map((task) => {
+                      {visibleStages.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No stages yet. Use "Manage Stages" to add one.</div> : selectedStageTasks.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No tasks in this stage yet.</div> : selectedStageTasks.map((task) => {
                         const employee = employees.find((item) => item.id === task.assignedToId)
-                        return <div key={task.id} className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{task.title}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{employee?.name ?? "Unassigned"}</span><span>/</span><span>{formatDate(task.dueDate)}</span><span>/</span><span>{taskStatuses[task.status]}</span></div></div>{canManageProjects && <Select value={task.stage || defaultStages[0]} onValueChange={(value) => moveTaskStage(task, value)}><SelectTrigger className="w-[180px] bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select>}<Button variant="ghost" className="text-primary hover:text-primary" onClick={() => { setDetailTask(task); setDetailOpen(true) }}>Open</Button>{canManageProjects && <Button variant="ghost" onClick={() => openEditTask(task)}>Edit</Button>}</div>
+                        return <div key={task.id} className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{task.title}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{employee?.name ?? "Unassigned"}</span><span>/</span><span>{formatDate(task.dueDate)}</span><span>/</span><span>{taskStatuses[task.status]}</span></div></div>{canManageProjects && <Select value={task.stage || FALLBACK_STAGE} onValueChange={(value) => moveTaskStage(task, value)}><SelectTrigger className="w-[180px] bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select>}<Button variant="ghost" className="text-primary hover:text-primary" onClick={() => { setDetailTask(task); setDetailOpen(true) }}>Open</Button>{canManageProjects && <Button variant="ghost" onClick={() => openEditTask(task)}>Edit</Button>}</div>
                       })}
                     </div>
                   </div>
@@ -631,7 +737,7 @@ function ProjectsPageContent() {
                       <TableBody>
                         {selectedProjectTasks.map((task) => {
                           const employee = employees.find((member) => member.id === task.assignedToId)
-                          return <TableRow key={task.id}><TableCell className="font-medium text-foreground">{task.title}</TableCell><TableCell className="text-muted-foreground">{task.stage || defaultStages[0]}</TableCell><TableCell className="text-muted-foreground">{employee?.name ?? "Unassigned"}</TableCell><TableCell><Chip className={priorityClasses[task.priority]}>{task.priority}</Chip></TableCell><TableCell className="text-muted-foreground">{taskStatuses[task.status]}</TableCell><TableCell className="text-muted-foreground">{formatDate(task.dueDate)}</TableCell></TableRow>
+                          return <TableRow key={task.id}><TableCell className="font-medium text-foreground">{task.title}</TableCell><TableCell className="text-muted-foreground">{task.stage || FALLBACK_STAGE}</TableCell><TableCell className="text-muted-foreground">{employee?.name ?? "Unassigned"}</TableCell><TableCell><Chip className={priorityClasses[task.priority]}>{task.priority}</Chip></TableCell><TableCell className="text-muted-foreground">{taskStatuses[task.status]}</TableCell><TableCell className="text-muted-foreground">{formatDate(task.dueDate)}</TableCell></TableRow>
                         })}
                       </TableBody>
                     </Table>
@@ -650,15 +756,15 @@ function ProjectsPageContent() {
         </section>
       </div>
 
-      <TaskDetailSheet task={detailTask} open={detailOpen} onOpenChange={setDetailOpen} employeeName={employees.find((employee) => employee.id === detailTask?.assignedToId)?.name} employeeAvatar={employees.find((employee) => employee.id === detailTask?.assignedToId)?.avatar ?? undefined} isAdmin={canManageProjects} onStatusChange={handleStatusChange} onEditTask={(task) => { setDetailOpen(false); openEditTask(task) }} />
+      <TaskDetailSheet task={detailTask} open={detailOpen} onOpenChange={setDetailOpen} employeeName={employees.find((employee) => employee.id === detailTask?.assignedToId)?.name} employeeAvatar={employees.find((employee) => employee.id === detailTask?.assignedToId)?.avatar ?? undefined} employees={employees} isAdmin={canManageProjects} onStatusChange={handleStatusChange} onEditTask={(task) => { setDetailOpen(false); openEditTask(task) }} />
 
       <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
         <DialogContent className="max-w-3xl sm:max-h-[90vh] sm:overflow-y-auto">
           <DialogHeader><DialogTitle className="text-center text-3xl font-semibold">Create New Project</DialogTitle><DialogDescription className="text-center">Add project details, assign members, and start delivery work right away.</DialogDescription></DialogHeader>
           <div className="grid gap-5 py-4">
-            <div className="grid gap-5 md:grid-cols-2"><div className="space-y-2"><Label>Client Name*</Label><Input value={projectClientName} onChange={(event) => setProjectClientName(event.target.value)} placeholder="Enter Client Name" className="h-12 bg-background" /></div><div className="space-y-2"><Label>Project Title*</Label><Input value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder="Enter Project Title" className="h-12 bg-background" /></div></div>
+            <div className="space-y-2"><Label>Client Name*</Label><Input value={projectClientName} onChange={(event) => setProjectClientName(event.target.value)} placeholder="Enter Client Name" className="h-12 bg-background" /></div>
             <div className="space-y-2"><Label>Project Description</Label><Textarea value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} placeholder="Enter Project Description" rows={4} className="bg-background" /></div>
-            <div className="grid gap-5 md:grid-cols-2"><div className="space-y-2"><Label>Project Due Date</Label><Input type="date" value={projectDueDate} onChange={(event) => setProjectDueDate(event.target.value)} className="h-12 bg-background" /></div><div className="space-y-2"><Label>Priority</Label><Select value={projectPriority} onValueChange={(value) => setProjectPriority(value as TaskPriority)}><SelectTrigger className="h-12 bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(priorityClasses).map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></div></div>
+            <div className="space-y-2"><Label>Project Due Date</Label><Input type="date" value={projectDueDate} onChange={(event) => setProjectDueDate(event.target.value)} className="h-12 bg-background" /></div>
             <MemberSelector employees={employees} selectedIds={projectMemberIds} onToggle={toggleProjectMember} />
           </div>
           <DialogFooter className="grid grid-cols-1 gap-3 sm:grid-cols-2"><Button type="button" variant="outline" className="h-12 border-warning/20 bg-warning/10 text-warning hover:bg-warning/15 hover:text-warning" onClick={() => { setProjectPriority("high"); toast.success("Template applied: default delivery stages are ready.") }} disabled={projectSaving}>Use Template</Button><Button type="button" className="h-12" onClick={handleProjectCreate} loading={projectSaving}>Next</Button></DialogFooter>
@@ -679,10 +785,44 @@ function ProjectsPageContent() {
           <div className="grid gap-4 py-3">
             <div className="space-y-2"><Label>Task Title*</Label><Input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Enter task title" className="bg-background" /></div>
             <div className="space-y-2"><Label>Description</Label><Textarea value={taskDescription} onChange={(event) => setTaskDescription(event.target.value)} placeholder="Add task context" rows={4} className="bg-background" /></div>
-            <div className="grid gap-4 md:grid-cols-2"><div className="space-y-2"><Label>Stage</Label><Select value={taskStage} onValueChange={setTaskStage}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Assignee*</Label><Select value={taskAssigneeId} onValueChange={setTaskAssigneeId} disabled={assignableProjectMembers.length === 0}><SelectTrigger className="bg-background"><SelectValue placeholder={assignableProjectMembers.length === 0 ? "Add project members first" : "Select project member"} /></SelectTrigger><SelectContent>{assignableProjectMembers.map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.name}</SelectItem>)}</SelectContent></Select>{assignableProjectMembers.length === 0 && <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>}</div></div>
+            <div className="space-y-2"><Label>Assignee*</Label><Select value={taskAssigneeId} onValueChange={setTaskAssigneeId} disabled={assignableProjectMembers.length === 0}><SelectTrigger className="bg-background"><SelectValue placeholder={assignableProjectMembers.length === 0 ? "Add project members first" : "Select project member"} /></SelectTrigger><SelectContent>{assignableProjectMembers.map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.name}</SelectItem>)}</SelectContent></Select>{assignableProjectMembers.length === 0 && <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>}</div>
+            <MemberSelector
+              employees={assignableProjectMembers.filter((employee) => employee.id !== taskAssigneeId)}
+              selectedIds={taskCollaboratorIds}
+              onToggle={toggleTaskCollaborator}
+              label="Collaborators"
+            />
             <div className="grid gap-4 md:grid-cols-3"><div className="space-y-2"><Label>Priority</Label><Select value={taskPriority} onValueChange={(value) => setTaskPriority(value as TaskPriority)}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(priorityClasses).map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Status</Label><Select value={taskStatus} onValueChange={(value) => setTaskStatus(value as TaskStatus)}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(taskStatuses).map((status) => <SelectItem key={status} value={status}>{taskStatuses[status as TaskStatus]}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Due Date</Label><Input type="date" value={taskDueDate} onChange={(event) => setTaskDueDate(event.target.value)} className="bg-background" /></div></div>
           </div>
           <DialogFooter className="flex items-center justify-between gap-3"><div>{editingTask && canManageProjects && <Button type="button" variant="destructive" onClick={() => void handleTaskDelete(editingTask)} loading={taskDeleting}><Trash2 className="mr-2 size-4" />Delete</Button>}</div><div className="flex flex-wrap items-center gap-2 sm:gap-3 xl:max-w-[420px] xl:justify-end"><Button type="button" variant="outline" onClick={() => { setTaskDialogOpen(false); resetTaskForm() }} disabled={taskSaving || taskDeleting}>Cancel</Button><Button type="button" onClick={handleTaskSave} loading={taskSaving}>{editingTask ? "Update Task" : "Create Task"}</Button></div></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={stagesDialogOpen} onOpenChange={setStagesDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Manage Stages</DialogTitle><DialogDescription>{selectedProject ? `Add or remove delivery stages for ${selectedProject.name}. Tasks are moved between stages from the board view.` : "Select a project first."}</DialogDescription></DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="flex gap-2">
+              <Input
+                value={newStageName}
+                onChange={(event) => setNewStageName(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addEditableStage() } }}
+                placeholder="New stage name"
+                className="bg-background"
+              />
+              <Button type="button" variant="outline" onClick={addEditableStage}>Add</Button>
+            </div>
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-border bg-muted/30 p-3">
+              {editableStages.length === 0 && <p className="p-2 text-sm text-muted-foreground">No stages yet. Add one above.</p>}
+              {editableStages.map((stage) => (
+                <div key={stage} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-background/70 p-3">
+                  <span className="truncate text-sm font-medium text-foreground">{stage}</span>
+                  <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => removeEditableStage(stage)}><X className="size-4" /></Button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter className="flex items-center gap-3"><Button type="button" variant="outline" onClick={() => setStagesDialogOpen(false)} disabled={stagesSaving}>Cancel</Button><Button type="button" onClick={handleStagesSave} loading={stagesSaving}>Save Stages</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </>

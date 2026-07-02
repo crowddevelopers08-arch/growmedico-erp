@@ -30,8 +30,10 @@ const needsRefresh =
     !hasModelField(cached, "ClientProject", "status") ||
     !hasModelField(cached, "ClientProject", "createdById") ||
     !hasModelField(cached, "ClientProject", "members") ||
+    !hasModelField(cached, "ClientProject", "stages") ||
     !hasModelField(cached, "Task", "assignedByName") ||
-    !hasModelField(cached, "Task", "assignedByAvatar")
+    !hasModelField(cached, "Task", "assignedByAvatar") ||
+    !hasModelField(cached, "Task", "collaborators")
   ))
 
 export const prisma = needsRefresh

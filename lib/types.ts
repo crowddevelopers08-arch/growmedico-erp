@@ -86,6 +86,8 @@ export interface Task {
   status: TaskStatus
   stage?: string | null
   dueDate?: string | null
+  collaborators?: string[]
+  commentCount?: number
   createdAt: string
   updatedAt: string
 }
@@ -106,6 +108,7 @@ export interface ClientProject {
   priority: TaskPriority
   dueDate?: string | null
   createdById: string
+  stages?: string[]
   members?: ProjectMember[]
   createdAt: string
   updatedAt: string

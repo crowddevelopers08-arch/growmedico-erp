@@ -105,6 +105,7 @@ function AttachmentChip({ att, isMine }: { att: Attachment; isMine: boolean }) {
 function ChannelsPageContent() {
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === "ADMIN"
+  const canManage = isAdmin || session?.user?.role === "MANAGER"
   const currentUserId = session?.user?.id
 
   const [channels, setChannels] = useState<Channel[]>([])
@@ -269,7 +270,7 @@ function ChannelsPageContent() {
             <Hash className="size-4 text-primary" />
             <span className="text-base font-bold text-foreground">Channels</span>
           </div>
-          <Button variant="ghost" size="icon" className="size-8" onClick={() => setCreateOpen(true)}><Plus className="size-4" /></Button>
+          {canManage && <Button variant="ghost" size="icon" className="size-8" onClick={() => setCreateOpen(true)}><Plus className="size-4" /></Button>}
         </div>
 
         <div className="flex-1 overflow-y-auto bg-background">
@@ -372,7 +373,7 @@ function ChannelsPageContent() {
                                   </div>
                                 </div>
                               ) : (
-                                <div className={cn("px-3 py-2 text-sm break-words shadow-sm space-y-1.5", isMine ? cn("bg-primary text-primary-foreground", msg.isFirst ? "rounded-l-2xl rounded-br-2xl rounded-tr-sm" : "rounded-2xl") : cn("bg-card text-card-foreground border", msg.isFirst ? "rounded-r-2xl rounded-bl-2xl rounded-tl-sm" : "rounded-2xl"))}>
+                                <div className={cn("px-3 py-2 text-sm wrap-break-word shadow-sm space-y-1.5", isMine ? cn("bg-primary text-primary-foreground", msg.isFirst ? "rounded-l-2xl rounded-br-2xl rounded-tr-sm" : "rounded-2xl") : cn("bg-card text-card-foreground border", msg.isFirst ? "rounded-r-2xl rounded-bl-2xl rounded-tl-sm" : "rounded-2xl"))}>
                                   {!isMine && msg.isFirst && <p className="text-xs font-semibold text-primary">{msg.senderName}</p>}
                                   {msg.content && <p className="whitespace-pre-wrap leading-relaxed">{renderContent(msg.content, mentionUsers)}</p>}
                                   {msg.audioContent && <AudioPlayer src={msg.audioContent} isMine={isMine} />}
@@ -413,7 +414,7 @@ function ChannelsPageContent() {
               <Hash className="size-10 text-muted-foreground" />
             </div>
             <p className="text-sm font-medium">Select a channel to start chatting</p>
-            <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="mr-2 size-4" />Create Channel</Button>
+            {canManage && <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="mr-2 size-4" />Create Channel</Button>}
           </div>
         )}
       </div>

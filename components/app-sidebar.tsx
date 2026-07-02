@@ -19,6 +19,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
+import { useEffect, useRef, useState } from "react"
 
 import {
   Sidebar,
@@ -62,15 +63,29 @@ const employeeNavItems = [
   { title: "Projects", href: "/projects", icon: FolderKanban },
 ]
 
-const channelNavItems = [
-  { title: "Channels", href: "/channels", icon: Hash },
-  { title: "Private Chat", href: "/chat", icon: MessageSquare },
-]
+function UnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  return (
+    <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground group-data-[collapsible=icon]:hidden">
+      {count > 99 ? "99+" : count}
+    </span>
+  )
+}
+
+function NotifyDot({ count }: { count: number }) {
+  if (count <= 0) return null
+  return <span className="ml-auto size-2 shrink-0 rounded-full bg-primary group-data-[collapsible=icon]:hidden" />
+}
 
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const [channelsUnread, setChannelsUnread] = useState(0)
+  const [chatUnread, setChatUnread] = useState(0)
+  const [assignedCount, setAssignedCount] = useState(0)
 
   const isAdmin = session?.user?.role === "ADMIN"
   const roleLabel = isAdmin ? "Admin" : session?.user?.role === "MANAGER" ? "Manager" : "Employee"
@@ -79,6 +94,55 @@ export function AppSidebar() {
   const userEmail = session?.user?.email ?? ""
   const userInitials = session?.user?.initials ?? userName.slice(0, 2).toUpperCase()
   const userAvatar = session?.user?.image ?? undefined
+
+  useEffect(() => {
+    if (!session) return
+
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch("/api/channels")
+        if (!res.ok) return
+        const channels: { kind: string; unreadCount?: number }[] = await res.json()
+        const groupUnread = channels
+          .filter((ch) => ch.kind === "group")
+          .reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0)
+        const dmUnread = channels
+          .filter((ch) => ch.kind === "direct" || ch.kind === "group_dm")
+          .reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0)
+        setChannelsUnread(groupUnread)
+        setChatUnread(dmUnread)
+      } catch {
+        // silently ignore
+      }
+    }
+
+    const fetchTaskCounts = async () => {
+      const employeeId = session.user?.employeeId
+      if (!employeeId) return
+      try {
+        const res = await fetch("/api/tasks")
+        if (!res.ok) return
+        const tasks: { assignedToId: string; status: string }[] = await res.json()
+        const isActive = (status: string) => status === "pending" || status === "in_progress"
+        setAssignedCount(tasks.filter((task) => task.assignedToId === employeeId && isActive(task.status)).length)
+      } catch {
+        // silently ignore
+      }
+    }
+
+    const fetchAll = () => { void fetchUnread(); void fetchTaskCounts() }
+    fetchAll()
+    pollRef.current = setInterval(fetchAll, 5000)
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [session])
+
+  // Clear badge when user is on the page
+  useEffect(() => {
+    if (pathname === "/channels") setChannelsUnread(0)
+    if (pathname === "/chat") setChatUnread(0)
+  }, [pathname])
 
   const handleSignOut = async () => {
     await signOut({ redirect: false })
@@ -89,7 +153,6 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-3">
         <div className="flex items-center justify-center">
-          {/* Collapsed: icon only */}
           <Image
             src="/icon.svg"
             alt="GM"
@@ -97,7 +160,6 @@ export function AppSidebar() {
             height={32}
             className="rounded-md hidden group-data-[collapsible=icon]:block shrink-0"
           />
-          {/* Expanded: full logo */}
           <Image
             src="/gmlogo1.png"
             alt="Grow Medico"
@@ -107,7 +169,7 @@ export function AppSidebar() {
             priority
           />
         </div>
-      </SidebarHeader> 
+      </SidebarHeader>
 
       <SidebarSeparator />
 
@@ -124,11 +186,12 @@ export function AppSidebar() {
                     asChild
                     isActive={pathname === item.href}
                     tooltip={item.title}
-                    className="h-9 rounded-lg transition-colors"
+                    className="h-9 rounded-lg transition-colors group"
                   >
                     <Link href={item.href}>
-                      <item.icon className="size-4" />
+                      <item.icon className="size-4 shrink-0" />
                       <span>{item.title}</span>
+                      {item.href === "/tasks" && <NotifyDot count={assignedCount} />}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -143,21 +206,34 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {channelNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === item.href}
-                    tooltip={item.title}
-                    className="h-9 rounded-lg transition-colors"
-                  >
-                    <Link href={item.href}>
-                      <item.icon className="size-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/channels"}
+                  tooltip="Channels"
+                  className="h-9 rounded-lg transition-colors group"
+                >
+                  <Link href="/channels">
+                    <Hash className="size-4 shrink-0" />
+                    <span>Channels</span>
+                    <UnreadBadge count={channelsUnread} />
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/chat"}
+                  tooltip="Private Chat"
+                  className="h-9 rounded-lg transition-colors group"
+                >
+                  <Link href="/chat">
+                    <MessageSquare className="size-4 shrink-0" />
+                    <span>Private Chat</span>
+                    <UnreadBadge count={chatUnread} />
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

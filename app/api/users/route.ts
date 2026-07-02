@@ -10,18 +10,17 @@ export async function GET(req: NextRequest) {
   const users = await prisma.user.findMany({
     select: {
       id: true,
+      email: true,
       employee: { select: { id: true, name: true, avatar: true } },
     },
   })
 
   return NextResponse.json(
-    users
-      .filter((u) => u.employee)
-      .map((u) => ({
-        userId: u.id,
-        employeeId: u.employee!.id,
-        name: u.employee!.name,
-        avatar: u.employee!.avatar,
-      }))
+    users.map((u) => ({
+      userId: u.id,
+      employeeId: u.employee?.id,
+      name: u.employee?.name ?? u.email,
+      avatar: u.employee?.avatar ?? null,
+    }))
   )
 }

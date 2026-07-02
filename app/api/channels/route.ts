@@ -40,6 +40,7 @@ export async function GET() {
         where: { id: { in: allUserIds } },
         select: {
           id: true,
+          email: true,
           employeeId: true,
           employee: {
             select: {
@@ -138,16 +139,17 @@ export async function GET() {
         const peerUserId = directIds.find((userId) => userId !== session.user.id) ?? null
         const peer = peerUserId ? userDirectory.get(peerUserId) : null
 
+        const peerDisplayName = peer?.employee?.name ?? peer?.email ?? "Direct Message"
         return {
           id: channel.id,
-          name: peer?.employee?.name ?? "Direct Message",
+          name: peerDisplayName,
           description: channel.description,
           createdById: channel.createdById,
           createdAt: channel.createdAt,
           kind: "direct" as const,
           peerUserId,
           peerEmployeeId: peer?.employeeId ?? null,
-          peerName: peer?.employee?.name ?? null,
+          peerName: peerDisplayName,
           peerAvatar: peer?.employee?.avatar ?? null,
           unreadCount:
             latestMessage &&
@@ -187,6 +189,7 @@ export async function POST(req: NextRequest) {
       where: { id: targetUserId },
       select: {
         id: true,
+        email: true,
         employeeId: true,
         employee: {
           select: {
@@ -200,6 +203,8 @@ export async function POST(req: NextRequest) {
     if (!targetUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
+
+    const targetDisplayName = targetUser.employee?.name ?? targetUser.email
 
     const directName = buildDirectChannelName([session.user.id, targetUserId])
     const existing = await prisma.channel.findUnique({ where: { name: directName } })
@@ -215,14 +220,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       id: channel.id,
-      name: targetUser.employee?.name ?? "Direct Message",
+      name: targetDisplayName,
       description: channel.description,
       createdById: channel.createdById,
       createdAt: channel.createdAt,
       kind: "direct" as const,
       peerUserId: targetUser.id,
       peerEmployeeId: targetUser.employeeId ?? null,
-      peerName: targetUser.employee?.name ?? null,
+      peerName: targetDisplayName,
       peerAvatar: targetUser.employee?.avatar ?? null,
       unreadCount: 0,
       lastMessageAt: null,
@@ -277,6 +282,11 @@ export async function POST(req: NextRequest) {
       lastMessageAt: null,
       lastMessagePreview: null,
     })
+  }
+
+  const role = session.user.role
+  if (role !== "ADMIN" && role !== "MANAGER") {
+    return NextResponse.json({ error: "Only admins and managers can create channels" }, { status: 403 })
   }
 
   if (!name?.trim()) return NextResponse.json({ error: "Channel name is required" }, { status: 400 })

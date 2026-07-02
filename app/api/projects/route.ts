@@ -46,6 +46,19 @@ async function validateMemberIds(memberIds: string[]) {
   return count === memberIds.length
 }
 
+function normalizeStages(value: unknown) {
+  if (!Array.isArray(value)) return []
+
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  )
+}
+
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -79,6 +92,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { clientName, name, description, dueDate, priority, status } = body
   const memberIds = normalizeMemberIds(body.memberIds)
+  const stages = normalizeStages(body.stages)
 
   if (!clientName?.trim() || !name?.trim()) {
     return NextResponse.json({ error: "Client name and project name are required" }, { status: 400 })
@@ -118,6 +132,7 @@ export async function POST(req: NextRequest) {
         priority: priority ?? "medium",
         status: status ?? "open",
         createdById: session.user.id,
+        stages: stages.length ? stages : undefined,
         members: memberIds.length
           ? {
               create: memberIds.map((employeeId) => ({ employeeId })),
