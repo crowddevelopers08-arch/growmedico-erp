@@ -12,10 +12,10 @@ export function LoadingScreen() {
           <div className="absolute size-36 rounded-full border-2 border-primary/15 border-t-primary animate-spin" />
           <div className="absolute size-36 rounded-full border-2 border-primary/10 border-b-primary/40 animate-spin [animation-direction:reverse] [animation-duration:1.5s]" />
           <Image
-            src="/gmlogo1.png"
+            src="/gm-black-logo.jpeg"
             alt="Grow Medico"
-            width={156}
-            height={52}
+            width={140}
+            height={140}
             className="rounded-lg"
             priority
           />
