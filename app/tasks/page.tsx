@@ -379,7 +379,7 @@ function TasksPageContent() {
                 key={view.id}
                 type="button"
                 onClick={() => router.push(view.id === "all" ? "/tasks" : `/tasks?list=${view.id}`)}
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer ${
                   active ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 }`}
               >

@@ -154,7 +154,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-3">
         <div className="flex items-center justify-center">
           <Image
-            src="/icon.svg"
+            src="/gm-fav-icon.png"
             alt="GM"
             width={32}
             height={32}
