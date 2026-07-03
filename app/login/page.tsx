@@ -48,10 +48,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center gap-3">
           <Image
-            src="/gmlogo1.png"
+            src="/gm-black-logo.jpeg"
             alt="Grow Medico"
-            width={220}
-            height={74}
+            width={160}
+            height={160}
             className="rounded-xl"
             priority
           />
