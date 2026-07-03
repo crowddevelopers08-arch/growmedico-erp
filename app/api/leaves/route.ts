@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getAdminUserIds, notifyMany } from "@/lib/notifications"
 import { leaveRequestSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function GET(req: NextRequest) {
@@ -51,6 +52,18 @@ export async function POST(req: NextRequest) {
           employeeId: data.employeeId,
         },
       })
+
+      // Alert all admins so they can review the pending request.
+      const adminIds = await getAdminUserIds()
+      await notifyMany(
+        adminIds.filter((id) => id !== session.user.id),
+        {
+          type: "leave_request",
+          title: "New leave request",
+          message: `${employee.name} requested ${data.days} day${data.days > 1 ? "s" : ""} ${data.type.toLowerCase()}.`,
+          link: "/leaves",
+        },
+      )
     }
 
     return NextResponse.json(request, { status: 201 })

@@ -16,8 +16,12 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } })
-  return NextResponse.json(user?.notifications ?? defaultNotifications)
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { preferences: true },
+  })
+  const prefs = (user?.preferences as Record<string, unknown>) ?? {}
+  return NextResponse.json({ ...defaultNotifications, ...((prefs.notifications as object) ?? {}) })
 }
 
 export async function PUT(req: NextRequest) {
@@ -26,9 +30,14 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json()
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { preferences: true },
+    })
+    const prefs = (user?.preferences as Record<string, unknown>) ?? {}
     await prisma.user.update({
       where: { id: session.user.id },
-      data: { notifications: body },
+      data: { preferences: { ...prefs, notifications: body } },
     })
     return NextResponse.json({ success: true })
   } catch (err: unknown) {

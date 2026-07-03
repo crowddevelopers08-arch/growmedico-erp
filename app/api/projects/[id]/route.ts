@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getUserIdsForEmployees, notifyMany } from "@/lib/notifications"
 
 const memberInclude = {
   members: {
@@ -71,6 +72,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const data: Record<string, unknown> = {}
+  let addedMemberIds: string[] = []
 
   if (body.memberIds !== undefined) {
     const memberIds = normalizeMemberIds(body.memberIds)
@@ -78,6 +80,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!(await validateMemberIds(memberIds))) {
       return NextResponse.json({ error: "One or more selected members are invalid" }, { status: 400 })
     }
+
+    // Figure out which members are genuinely new so we only notify those.
+    const existingMembers = await prisma.projectMember.findMany({
+      where: { projectId: id },
+      select: { employeeId: true },
+    })
+    const existingIds = new Set(existingMembers.map((m) => m.employeeId))
+    addedMemberIds = memberIds.filter((memberId) => !existingIds.has(memberId))
 
     data.members = {
       deleteMany: {},
@@ -98,6 +108,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data,
     include: memberInclude,
   })
+
+  if (addedMemberIds.length > 0) {
+    const userIdByEmployeeId = await getUserIdsForEmployees(addedMemberIds)
+    await notifyMany(
+      addedMemberIds
+        .map((employeeId) => userIdByEmployeeId.get(employeeId))
+        .filter((userId) => userId !== session.user.id),
+      {
+        type: "project_member",
+        title: "Added to a project",
+        message: `You were added to ${updated.clientName} — ${updated.name}.`,
+        link: "/projects",
+      },
+    )
+  }
 
   return NextResponse.json(updated)
 }

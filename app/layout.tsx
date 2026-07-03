@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SessionProvider } from '@/components/session-provider'
 import { ThemeProvider } from '@/components/theme-provider'
+import { NotificationProvider } from '@/lib/notification-context'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -48,7 +49,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SessionProvider>
-            {children}
+            <NotificationProvider>
+              {children}
+            </NotificationProvider>
           </SessionProvider>
           <Toaster />
         </ThemeProvider>

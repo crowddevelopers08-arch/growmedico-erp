@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Bell, Search, Plus, UserPlus, UserCircle, CalendarPlus, Clock, FileText, AtSign, ClipboardList, Handshake } from "lucide-react"
+import { useState } from "react"
+import { Bell, Search, Plus, UserPlus, UserCircle, CalendarPlus, Clock, FileText, CheckCheck } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -16,54 +16,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { useHR } from "@/lib/hr-context"
 import { EmployeeDialog } from "@/components/employee-dialog"
 import { LeaveRequestDialog } from "@/components/leave-request-dialog"
-
-const notificationIcons: Record<string, typeof AtSign> = {
-  mention: AtSign,
-  task_assigned: ClipboardList,
-  task_collaborator: Handshake,
-}
+import { useNotifications } from "@/lib/notification-context"
+import { notificationMeta, relativeTime } from "@/lib/notification-display"
+import { PushToggle } from "@/components/push-toggle"
+import { cn } from "@/lib/utils"
 
 export function DashboardHeader() {
   const router = useRouter()
   const { data: session } = useSession()
-  const { leaveRequests, employees } = useHR()
+  const { notifications, unreadCount, markAllRead, markRead } = useNotifications()
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false)
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
-  const [activityNotifs, setActivityNotifs] = useState<any[]>([])
 
   const isAdmin = session?.user?.role === "ADMIN"
+  const recent = notifications.slice(0, 8)
 
-  const pendingLeaves = leaveRequests
-    .filter((r) => r.status === "pending")
-    .slice(0, 5)
-
-  const loadActivityNotifs = useCallback(async () => {
-    try {
-      const res = await fetch("/api/notifications")
-      if (!res.ok) return
-      const all: any[] = await res.json()
-      setActivityNotifs(all.filter((n) => n.type in notificationIcons && !n.read))
-    } catch {}
-  }, [])
-
-  useEffect(() => {
-    if (!session) return
-    loadActivityNotifs()
-    const handler = () => loadActivityNotifs()
-    window.addEventListener("focus", handler)
-    const pollId = setInterval(handler, 10000)
-    return () => {
-      window.removeEventListener("focus", handler)
-      clearInterval(pollId)
-    }
-  }, [session, loadActivityNotifs])
-
-  const handleMarkAllRead = async () => {
-    await fetch("/api/notifications", { method: "PATCH" })
-    setActivityNotifs([])
+  const handleOpen = (n: (typeof notifications)[number]) => {
+    if (!n.read) markRead(n.id)
+    if (n.link) router.push(n.link)
   }
 
   const adminQuickActions = [
@@ -124,84 +96,78 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative size-9">
                 <Bell className="size-4 text-muted-foreground" />
-                {(pendingLeaves.length > 0 || activityNotifs.length > 0) && (
-                  <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-chart-1" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-chart-1 px-1 text-[10px] font-semibold text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
                 )}
                 <span className="sr-only">Notifications</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel className="flex items-center justify-between">
-                Notifications
-                <div className="flex items-center gap-1.5">
-                  {(pendingLeaves.length > 0 || activityNotifs.length > 0) && (
+            <DropdownMenuContent align="end" className="w-96 p-0">
+              <div className="flex items-center justify-between px-3 py-2.5">
+                <span className="text-sm font-semibold">Notifications</span>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
                     <Badge variant="secondary" className="text-xs">
-                      {pendingLeaves.length + activityNotifs.length} new
+                      {unreadCount} new
                     </Badge>
                   )}
-                  {activityNotifs.length > 0 && (
+                  {unreadCount > 0 && (
                     <button
-                      className="text-[10px] text-muted-foreground hover:text-foreground underline"
-                      onClick={handleMarkAllRead}
+                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={markAllRead}
                     >
+                      <CheckCheck className="size-3" />
                       Mark all read
                     </button>
                   )}
                 </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
+              </div>
+              <DropdownMenuSeparator className="my-0" />
 
-              {/* Mentions, task assignments, and collaborator adds */}
-              {activityNotifs.map((notif) => {
-                const Icon = notificationIcons[notif.type] ?? AtSign
-                return (
-                  <DropdownMenuItem
-                    key={notif.id}
-                    className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                    onClick={() => { if (notif.link) router.push(notif.link) }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon className="size-3.5 text-primary shrink-0" />
-                      <span className="font-medium text-sm">{notif.title}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-5 line-clamp-2">{notif.message}</p>
-                  </DropdownMenuItem>
-                )
-              })}
+              <PushToggle variant="banner" />
 
-              {/* Leave notifications */}
-              {pendingLeaves.map((req) => {
-                const employee = employees.find((e) => e.id === req.employeeId)
-                return (
-                  <DropdownMenuItem
-                    key={req.id}
-                    className="flex flex-col items-start gap-1 p-3 cursor-pointer"
-                    onClick={() => router.push("/leaves")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="size-2 rounded-full bg-chart-1" />
-                      <span className="font-medium text-sm">Leave Request</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground pl-4">
-                      {employee?.name ?? "Unknown"} requested {req.days} day{req.days > 1 ? "s" : ""} {req.type.toLowerCase()}
-                    </p>
-                    <span className="text-xs text-muted-foreground pl-4">
-                      Applied {req.appliedOn}
-                    </span>
-                  </DropdownMenuItem>
-                )
-              })}
+              <div className="max-h-[22rem] overflow-y-auto">
+                {recent.length === 0 && (
+                  <div className="py-10 text-center text-sm text-muted-foreground">
+                    You&apos;re all caught up
+                  </div>
+                )}
 
-              {pendingLeaves.length === 0 && activityNotifs.length === 0 && (
-                <DropdownMenuItem className="text-center justify-center text-sm text-muted-foreground py-4">
-                  No pending notifications
-                </DropdownMenuItem>
-              )}
+                {recent.map((notif) => {
+                  const { icon: Icon, color } = notificationMeta(notif.type)
+                  return (
+                    <button
+                      key={notif.id}
+                      onClick={() => handleOpen(notif)}
+                      className={cn(
+                        "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
+                        !notif.read && "bg-primary/5",
+                      )}
+                    >
+                      <span className={cn("mt-0.5 shrink-0", color)}>
+                        <Icon className="size-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-sm font-medium">{notif.title}</span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            {relativeTime(notif.createdAt)}
+                          </span>
+                        </div>
+                        <p className="line-clamp-2 text-xs text-muted-foreground">{notif.message}</p>
+                      </div>
+                      {!notif.read && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-chart-1" />}
+                    </button>
+                  )
+                })}
+              </div>
 
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="my-0" />
               <DropdownMenuItem
-                className="text-center justify-center text-sm text-muted-foreground cursor-pointer"
-                onClick={() => router.push("/leaves")}
+                className="cursor-pointer justify-center py-2.5 text-sm font-medium text-primary"
+                onClick={() => router.push("/notifications")}
               >
                 View all notifications
               </DropdownMenuItem>

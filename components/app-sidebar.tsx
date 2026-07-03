@@ -14,6 +14,7 @@ import {
   ClipboardList,
   MessageSquare,
   FolderKanban,
+  Bell,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -42,10 +43,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useNotifications } from "@/lib/notification-context"
 
 const adminNavItems = [
   { title: "Dashboard", href: "/", icon: LayoutDashboard },
   { title: "My Portal", href: "/my-portal", icon: UserCircle },
+  { title: "Notifications", href: "/notifications", icon: Bell },
   { title: "Employees", href: "/employees", icon: Users },
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
@@ -56,6 +59,7 @@ const adminNavItems = [
 
 const employeeNavItems = [
   { title: "My Portal", href: "/my-portal", icon: UserCircle },
+  { title: "Notifications", href: "/notifications", icon: Bell },
   { title: "Employees", href: "/employees", icon: Users },
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
@@ -81,6 +85,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
+  const { unreadCount: notificationsUnread } = useNotifications()
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [channelsUnread, setChannelsUnread] = useState(0)
@@ -192,6 +197,7 @@ export function AppSidebar() {
                       <item.icon className="size-4 shrink-0" />
                       <span>{item.title}</span>
                       {item.href === "/tasks" && <NotifyDot count={assignedCount} />}
+                      {item.href === "/notifications" && <UnreadBadge count={notificationsUnread} />}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

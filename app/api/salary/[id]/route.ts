@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getUserIdForEmployee, notify } from "@/lib/notifications"
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -27,6 +28,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         where: { id },
         data: { status: "paid", paidOn: new Date().toISOString().split("T")[0] },
       })
+
+      const employeeUserId = await getUserIdForEmployee(record.employeeId)
+      if (employeeUserId) {
+        await notify(employeeUserId, {
+          type: "salary_paid",
+          title: "Salary paid",
+          message: `Your salary for ${record.month} ${record.year} (₹${record.netSalary.toLocaleString("en-IN")}) has been paid.`,
+          link: "/my-portal",
+        })
+      }
+
       return NextResponse.json(record)
     }
 

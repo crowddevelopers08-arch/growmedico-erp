@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getAdminUserIds, getUserIdForEmployee, notify, notifyMany } from "@/lib/notifications"
 
 // Office hours: 10:00 AM – 7:00 PM (9-hour work day)
 // Late threshold: check-in after 10:30 AM
@@ -80,6 +81,27 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Confirm the punch to the employee, and flag late arrivals to admins.
+    const employeeUserId = await getUserIdForEmployee(employeeId)
+    await notify(employeeUserId ?? "", {
+      type: "attendance",
+      title: isLate ? "Checked in (late)" : "Checked in",
+      message: `You checked in at ${to12h(time)}${isLate ? " — marked late." : "."}`,
+      link: "/attendance",
+    })
+    if (isLate) {
+      const adminIds = await getAdminUserIds()
+      await notifyMany(
+        adminIds.filter((id) => id !== employeeUserId),
+        {
+          type: "attendance_late",
+          title: "Late check-in",
+          message: `${employee.name} checked in late at ${to12h(time)}.`,
+          link: "/attendance",
+        },
+      )
+    }
+
     return NextResponse.json(record)
   }
 
@@ -114,6 +136,16 @@ export async function POST(req: NextRequest) {
         employeeId,
       },
     })
+
+    const employeeUserId = await getUserIdForEmployee(employeeId)
+    if (employeeUserId) {
+      await notify(employeeUserId, {
+        type: "attendance",
+        title: "Checked out",
+        message: `You checked out at ${to12h(time)} — ${record.workHours}h logged today.`,
+        link: "/attendance",
+      })
+    }
 
     return NextResponse.json(record)
   }

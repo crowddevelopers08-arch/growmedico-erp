@@ -24,6 +24,8 @@ const cached = globalForPrisma.prisma
 const needsRefresh =
   !cached ||
   (process.env.NODE_ENV !== "production" && (
+    typeof (cached as any).notification === "undefined" ||
+    typeof (cached as any).pushSubscription === "undefined" ||
     typeof (cached as any).clientProject === "undefined" ||
     !hasModelField(cached, "ClientProject", "dueDate") ||
     !hasModelField(cached, "ClientProject", "priority") ||

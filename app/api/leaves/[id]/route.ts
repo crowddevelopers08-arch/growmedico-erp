@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getUserIdForEmployee, notify } from "@/lib/notifications"
 import { leaveDecisionSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -40,6 +41,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           employeeId: request.employeeId,
         },
       })
+
+      // Let the requester know the outcome.
+      const employeeUserId = await getUserIdForEmployee(request.employeeId)
+      if (employeeUserId) {
+        await notify(employeeUserId, {
+          type: status === "approved" ? "leave_approved" : "leave_rejected",
+          title: `Leave request ${status}`,
+          message:
+            status === "approved"
+              ? `Your ${request.type.toLowerCase()} request was approved.`
+              : `Your ${request.type.toLowerCase()} request was rejected${request.rejectionReason ? `: ${request.rejectionReason}` : "."}`,
+          link: "/leaves",
+        })
+      }
     }
 
     return NextResponse.json(request)
