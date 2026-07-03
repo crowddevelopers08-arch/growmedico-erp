@@ -90,7 +90,7 @@ function SettingsPageContent() {
   // Load localStorage-based settings immediately (no session needed)
   useEffect(() => {
     const savedNotif = loadFromStorage("hr-notifications", DEFAULT_NOTIFICATIONS)
-    const savedAppearance = loadFromStorage("hr-appearance", DEFAULT_APPEARANCE)
+    const savedAppearance = loadFromStorage("gm-appearance", DEFAULT_APPEARANCE)
     setNotifications(savedNotif)
     setAppearance(savedAppearance)
     setTheme(savedAppearance.theme)
@@ -173,7 +173,7 @@ function SettingsPageContent() {
   }
 
   const handleSaveAppearance = () => {
-    localStorage.setItem("hr-appearance", JSON.stringify(appearance))
+    localStorage.setItem("gm-appearance", JSON.stringify(appearance))
     setTheme(appearance.theme)
     toast.success("Appearance preferences saved")
   }

@@ -43,6 +43,7 @@ export default function RootLayout({
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
+          storageKey="gm-theme"
           enableSystem
           disableTransitionOnChange
         >
