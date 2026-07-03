@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { buildDirectChannelName, parseDirectChannelName, isGroupDmChannelName, parseGroupDmMeta, GROUP_DM_PREFIX } from "@/lib/chat"
 import { randomUUID } from "crypto"
+import { channelCreateSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -289,11 +290,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Only admins and managers can create channels" }, { status: 403 })
   }
 
-  if (!name?.trim()) return NextResponse.json({ error: "Channel name is required" }, { status: 400 })
+  const parsed = channelCreateSchema.safeParse({ name, description })
+  if (!parsed.success) {
+    return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
+  }
 
   try {
     const channel = await prisma.channel.create({
-      data: { name: name.trim(), description: description?.trim() ?? null, createdById: session.user.id },
+      data: { name: parsed.data.name, description: parsed.data.description?.trim() || null, createdById: session.user.id },
     })
     return NextResponse.json(channel)
   } catch {

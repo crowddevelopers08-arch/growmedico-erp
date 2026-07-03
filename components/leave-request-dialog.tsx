@@ -1,6 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { format, parseISO } from "date-fns"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -10,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -29,8 +33,21 @@ import { CalendarIcon } from "lucide-react"
 import { useHR } from "@/lib/hr-context"
 import type { LeaveType } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { leaveRequestSchema } from "@/lib/validations"
+import type { z } from "zod"
 
 const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"]
+
+type LeaveFormValues = z.infer<typeof leaveRequestSchema>
+
+const emptyValues: LeaveFormValues = {
+  employeeId: "",
+  type: "Casual Leave",
+  startDate: "",
+  endDate: "",
+  days: 1,
+  reason: "",
+}
 
 interface LeaveRequestDialogProps {
   open: boolean
@@ -39,52 +56,38 @@ interface LeaveRequestDialogProps {
 
 export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogProps) {
   const { employees, addLeaveRequest } = useHR()
-  const [employeeId, setEmployeeId] = useState("")
-  const [leaveType, setLeaveType] = useState<LeaveType>("Casual Leave")
-  const [startDate, setStartDate] = useState<Date>()
-  const [endDate, setEndDate] = useState<Date>()
-  const [reason, setReason] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const form = useForm<LeaveFormValues>({
+    resolver: zodResolver(leaveRequestSchema),
+    defaultValues: emptyValues,
+  })
 
   useEffect(() => {
-    if (!open) {
-      setEmployeeId("")
-      setLeaveType("Casual Leave")
-      setStartDate(undefined)
-      setEndDate(undefined)
-      setReason("")
-    }
-  }, [open])
+    if (!open) form.reset(emptyValues)
+  }, [open, form])
 
-  const calculateDays = () => {
-    if (!startDate || !endDate) return 0
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime())
+  const startDate = form.watch("startDate")
+  const endDate = form.watch("endDate")
+
+  const calculateDays = (start: string, end: string) => {
+    if (!start || !end) return 0
+    const diffTime = Math.abs(new Date(end).getTime() - new Date(start).getTime())
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!employeeId || !startDate || !endDate || !reason) return
+  const days = calculateDays(startDate, endDate)
 
-    setIsSubmitting(true)
+  const onSubmit = async (values: LeaveFormValues) => {
     try {
-      await addLeaveRequest({
-        employeeId,
-        type: leaveType,
-        startDate: startDate.toISOString().split("T")[0],
-        endDate: endDate.toISOString().split("T")[0],
-        days: calculateDays(),
-        reason,
-      })
+      await addLeaveRequest({ ...values, days: calculateDays(values.startDate, values.endDate) })
       onOpenChange(false)
-    } finally {
-      setIsSubmitting(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to submit leave request")
     }
   }
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
+  const formatDate = (value: string) => {
+    return parseISO(value).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -100,122 +103,162 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
             Submit a leave request for an employee.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="employee">Employee</Label>
-              <Select value={employeeId} onValueChange={setEmployeeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.name} - {emp.department}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <div className="grid gap-4 py-4">
+              <FormField
+                control={form.control}
+                name="employeeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Employee</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select employee" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {employees.map((emp) => (
+                          <SelectItem key={emp.id} value={emp.id}>
+                            {emp.name} - {emp.department}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="space-y-2">
-              <Label htmlFor="leaveType">Leave Type</Label>
-              <Select value={leaveType} onValueChange={(v: LeaveType) => setLeaveType(v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select leave type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {leaveTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Leave Type</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select leave type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {leaveTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Start Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !startDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 size-4" />
-                      {startDate ? formatDate(startDate) : "Pick date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={startDate}
-                      onSelect={setStartDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-2 size-4" />
+                              {field.value ? formatDate(field.value) : "Pick date"}
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? parseISO(field.value) : undefined}
+                            onSelect={(date) => date && field.onChange(format(date, "yyyy-MM-dd"))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-2 size-4" />
+                              {field.value ? formatDate(field.value) : "Pick date"}
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? parseISO(field.value) : undefined}
+                            onSelect={(date) => date && field.onChange(format(date, "yyyy-MM-dd"))}
+                            disabled={(date) => (startDate ? date < parseISO(startDate) : false)}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
-              <div className="space-y-2">
-                <Label>End Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !endDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 size-4" />
-                      {endDate ? formatDate(endDate) : "Pick date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={endDate}
-                      onSelect={setEndDate}
-                      disabled={(date) => startDate ? date < startDate : false}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
+              {startDate && endDate && (
+                <p className="text-sm text-muted-foreground">
+                  Duration: {days} day{days > 1 ? "s" : ""}
+                </p>
+              )}
 
-            {startDate && endDate && (
-              <p className="text-sm text-muted-foreground">
-                Duration: {calculateDays()} day{calculateDays() > 1 ? "s" : ""}
-              </p>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="reason">Reason</Label>
-              <Textarea
-                id="reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Please provide a reason for your leave request..."
-                rows={3}
-                required
+              <FormField
+                control={form.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reason</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Please provide a reason for your leave request..."
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={isSubmitting} disabled={!employeeId || !startDate || !endDate || !reason}>
-              Submit Request
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={form.formState.isSubmitting}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={form.formState.isSubmitting}>
+                Submit Request
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

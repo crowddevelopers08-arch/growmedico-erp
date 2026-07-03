@@ -33,18 +33,19 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useHR } from "@/lib/hr-context"
 import { TaskDetailSheet } from "@/components/task-detail-sheet"
+import { taskCreateSchema, firstIssueMessage } from "@/lib/validations"
 import type { Task, TaskStatus, TaskPriority, ClientProject, Employee } from "@/lib/types"
 
 const priorityConfig = {
-  low: { label: "Low", class: "bg-slate-500/10 text-slate-500 border-slate-500/20" },
-  medium: { label: "Medium", class: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
-  high: { label: "High", class: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
-  urgent: { label: "Urgent", class: "bg-red-500/10 text-red-600 border-red-500/20" },
+  low: { label: "Low", class: "bg-muted text-muted-foreground border-border" },
+  medium: { label: "Medium", class: "bg-info/10 text-info border-info/20" },
+  high: { label: "High", class: "bg-warning/10 text-warning border-warning/20" },
+  urgent: { label: "Urgent", class: "bg-destructive/10 text-destructive border-destructive/20" },
 }
 
 const statusConfig = {
   pending: { label: "Pending", icon: Clock, class: "bg-warning/10 text-warning border-warning/20" },
-  in_progress: { label: "In Progress", icon: CircleDot, class: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
+  in_progress: { label: "In Progress", icon: CircleDot, class: "bg-info/10 text-info border-info/20" },
   completed: { label: "Completed", icon: CheckCircle2, class: "bg-success/10 text-success border-success/20" },
   cancelled: { label: "Cancelled", icon: AlertCircle, class: "bg-muted text-muted-foreground border-border" },
 }
@@ -211,7 +212,25 @@ function TasksPageContent() {
   }, [dialogOpen, editTask, activeList, assignableProjectMembers, session?.user?.employeeId])
 
   const handleSave = async () => {
-    if (!formTitle.trim() || formAssignees.length === 0 || !formProjectId) return
+    if (formAssignees.length === 0) {
+      toast.error("Select who this task is assigned to")
+      return
+    }
+
+    const parsed = taskCreateSchema.safeParse({
+      title: formTitle.trim(),
+      description: formDesc.trim() || null,
+      projectId: formProjectId,
+      assignedToId: formAssignees[0],
+      collaborators: formCollaboratorIds,
+      priority: formPriority,
+      dueDate: formDueDate || null,
+    })
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error))
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -480,9 +499,9 @@ function TasksPageContent() {
                     onClick={() => { setDetailTask(task); setDetailOpen(true) }}
                   >
                     <div className={`mt-1 size-2 rounded-full shrink-0 ${
-                      task.priority === "urgent" ? "bg-red-500" :
-                      task.priority === "high" ? "bg-orange-500" :
-                      task.priority === "medium" ? "bg-blue-500" : "bg-slate-400"
+                      task.priority === "urgent" ? "bg-destructive" :
+                      task.priority === "high" ? "bg-warning" :
+                      task.priority === "medium" ? "bg-info" : "bg-muted-foreground"
                     }`} />
 
                     <div className="flex-1 min-w-0">
@@ -495,7 +514,7 @@ function TasksPageContent() {
                         )}
                         <PriorityBadge priority={task.priority} />
                         <StatusBadge status={task.status} />
-                        {overdue && <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20">Overdue</Badge>}
+                        {overdue && <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
                       </div>
 
                       {task.description && <p className="text-xs text-muted-foreground line-clamp-1 mb-1">{task.description}</p>}
@@ -511,7 +530,7 @@ function TasksPageContent() {
                           </div>
                         )}
                         {task.dueDate && (
-                          <div className={`flex items-center gap-1 ${overdue ? "text-red-500" : ""}`}>
+                          <div className={`flex items-center gap-1 ${overdue ? "text-destructive" : ""}`}>
                             <CalendarIcon className="size-3" />
                             <span>Due {formatDate(task.dueDate)}</span>
                           </div>

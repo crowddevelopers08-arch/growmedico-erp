@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { leaveRequestSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -28,20 +29,26 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+    const parsed = leaveRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
+    }
+
+    const data = parsed.data
     const today = new Date().toISOString().split("T")[0]
 
     const request = await prisma.leaveRequest.create({
-      data: { ...body, status: "pending", appliedOn: today },
+      data: { ...data, status: "pending", appliedOn: today },
     })
 
-    const employee = await prisma.employee.findUnique({ where: { id: body.employeeId } })
+    const employee = await prisma.employee.findUnique({ where: { id: data.employeeId } })
     if (employee) {
       await prisma.activity.create({
         data: {
           type: "leave",
           action: "Leave Request",
-          description: `${employee.name} requested ${body.days} day${body.days > 1 ? "s" : ""} ${body.type.toLowerCase()}`,
-          employeeId: body.employeeId,
+          description: `${employee.name} requested ${data.days} day${data.days > 1 ? "s" : ""} ${data.type.toLowerCase()}`,
+          employeeId: data.employeeId,
         },
       })
     }

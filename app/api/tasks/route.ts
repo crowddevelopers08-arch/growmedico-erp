@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getUserIdsForEmployees, pushNotification } from "@/lib/notifications"
+import { taskCreateSchema, firstIssueMessage } from "@/lib/validations"
 
 async function getAssignerDirectory(assignedByIds: string[]) {
   if (!assignedByIds.length) return new Map<string, { name: string | null; avatar: string | null }>()
@@ -126,7 +127,11 @@ export async function POST(req: NextRequest) {
 
   const canManageTasks = session.user.role === "ADMIN" || session.user.role === "MANAGER"
   const body = await req.json()
-  const { title, description, assignedToId, priority, dueDate, projectId, stage } = body
+  const parsed = taskCreateSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
+  }
+  const { title, description, assignedToId, priority, dueDate, projectId, stage } = parsed.data
 
   // Anyone can create a self task (assigned only to themselves); assigning
   // to someone else, or adding collaborators, still requires ADMIN/MANAGER.
@@ -138,10 +143,6 @@ export async function POST(req: NextRequest) {
   const collaboratorIds = canManageTasks
     ? normalizeEmployeeIds(body.collaborators).filter((id) => id !== assignedToId)
     : []
-
-  if (!title || !assignedToId || !projectId) {
-    return NextResponse.json({ error: "Title, assigned employee, and project are required" }, { status: 400 })
-  }
 
   const project = await prisma.clientProject.findUnique({
     where: { id: projectId },

@@ -3,20 +3,19 @@ import { getServerSession } from "next-auth"
 import bcrypt from "bcryptjs"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { passwordUpdateSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const { currentPassword, newPassword } = await req.json()
-
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+    const body = await req.json()
+    const parsed = passwordUpdateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
     }
-    if (newPassword.length < 8) {
-      return NextResponse.json({ error: "New password must be at least 8 characters" }, { status: 400 })
-    }
+    const { currentPassword, newPassword } = parsed.data
 
     const user = await prisma.user.findUnique({ where: { id: session.user.id } })
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })

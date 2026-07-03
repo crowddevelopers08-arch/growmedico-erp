@@ -148,7 +148,7 @@ function GroupAvatar({ members }: { members: { userId: string; name: string; ava
           </Avatar>
           <Avatar className="absolute top-0 right-0 size-7 border-2 border-background">
             <AvatarImage src={shown[1].avatar ?? undefined} />
-            <AvatarFallback className="bg-violet-500/20 text-[9px] text-violet-600">{shown[1].name.slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="bg-secondary/20 text-[9px] text-secondary">{shown[1].name.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
         </>
       )}
@@ -466,7 +466,7 @@ function ChatPageContent() {
   const getTick = (msg: Message) => {
     if (msg.senderId !== currentUserId) return null
     const readByOthers = (msg.readBy ?? []).some((id) => id !== currentUserId)
-    if (readByOthers) return <CheckCheck className="size-3.5 text-sky-400" />
+    if (readByOthers) return <CheckCheck className="size-3.5 text-info" />
     return <Check className="size-3.5 text-primary-foreground/90" />
   }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { projectCreateSchema, firstIssueMessage } from "@/lib/validations"
 
 const memberInclude = {
   members: {
@@ -90,13 +91,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { clientName, name, description, dueDate, priority, status } = body
+  const parsed = projectCreateSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
+  }
+
+  const { clientName, name, description, dueDate, priority, status } = parsed.data
   const memberIds = normalizeMemberIds(body.memberIds)
   const stages = normalizeStages(body.stages)
-
-  if (!clientName?.trim() || !name?.trim()) {
-    return NextResponse.json({ error: "Client name and project name are required" }, { status: 400 })
-  }
 
   if (!(await validateMemberIds(memberIds))) {
     return NextResponse.json({ error: "One or more selected members are invalid" }, { status: 400 })

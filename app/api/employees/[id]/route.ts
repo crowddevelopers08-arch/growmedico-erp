@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import bcrypt from "bcryptjs"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { employeeUpdateSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -36,23 +37,43 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params
     const body = await req.json()
-    const { password, accountRole, ...employeeData } = body
-    const employee = await prisma.employee.update({ where: { id }, data: employeeData })
-
-    if (password || accountRole) {
-      const data: { password?: string; role?: string } = {}
-      if (password) {
-        data.password = await bcrypt.hash(password, 10)
-      }
-      if (accountRole) {
-        data.role = accountRole
-      }
-
-      await prisma.user.update({
-        where: { employeeId: id },
-        data,
-      })
+    const parsed = employeeUpdateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
     }
+
+    const { password, accountRole, ...employeeData } = parsed.data
+
+    // Check the Employee table and the User (login) table for conflicts,
+    // excluding this employee's own records — a login account can hold an
+    // email with no matching Employee row (e.g. the admin's own account).
+    const [existingEmployeeEmail, existingEmployeePhone, existingUserEmail] = await Promise.all([
+      prisma.employee.findFirst({ where: { email: employeeData.email, NOT: { id } } }),
+      prisma.employee.findFirst({ where: { phone: employeeData.phone, NOT: { id } } }),
+      prisma.user.findFirst({ where: { email: employeeData.email, employeeId: { not: id } } }),
+    ])
+    if (existingEmployeeEmail || existingUserEmail) {
+      return NextResponse.json({ error: "An employee with this email already exists" }, { status: 409 })
+    }
+    if (existingEmployeePhone) {
+      return NextResponse.json({ error: "An employee with this phone number already exists" }, { status: 409 })
+    }
+
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined
+
+    const employee = await prisma.$transaction(async (tx) => {
+      const updated = await tx.employee.update({ where: { id }, data: employeeData })
+
+      if (password || accountRole || employeeData.email) {
+        const data: { password?: string; role?: string; email?: string } = { email: updated.email }
+        if (hashedPassword) data.password = hashedPassword
+        if (accountRole) data.role = accountRole
+
+        await tx.user.update({ where: { employeeId: id }, data })
+      }
+
+      return updated
+    })
 
     return NextResponse.json({
       ...employee,
@@ -60,8 +81,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     })
   } catch (err: unknown) {
     console.error("[PATCH /api/employees/:id] Error:", err)
-    const message = err instanceof Error ? err.message : "Failed to update employee"
-    return NextResponse.json({ error: message }, { status: 500 })
+    const code = typeof err === "object" && err !== null && "code" in err ? String((err as { code?: unknown }).code) : ""
+    if (code === "P2002") {
+      return NextResponse.json({ error: "An employee with this email or phone number already exists" }, { status: 409 })
+    }
+    return NextResponse.json({ error: "Failed to update employee" }, { status: 500 })
   }
 }
 

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getUserIdsForEmployees, pushNotification } from "@/lib/notifications"
+import { taskUpdateSchema, firstIssueMessage } from "@/lib/validations"
 
 async function isProjectMember(projectId: string, employeeId: string) {
   const membership = await prisma.projectMember.findUnique({
@@ -36,6 +37,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params
   const body = await req.json()
+  const parsedUpdate = taskUpdateSchema.safeParse(body)
+  if (!parsedUpdate.success) {
+    return NextResponse.json({ error: firstIssueMessage(parsedUpdate.error) }, { status: 400 })
+  }
   const canManageTasks = session.user.role === "ADMIN" || session.user.role === "MANAGER"
 
   const task = await prisma.task.findUnique({ where: { id } })

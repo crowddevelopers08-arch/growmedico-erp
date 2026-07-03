@@ -66,7 +66,7 @@ const getStatusBadge = (status: string) => {
     case "present":
       return <Badge variant="outline" className="text-success border-success/30 bg-success/10">Present</Badge>
     case "late":
-      return <Badge variant="outline" className="text-orange-500 border-orange-500/30 bg-orange-500/10">Late</Badge>
+      return <Badge variant="outline" className="text-warning border-warning/30 bg-warning/10">Late</Badge>
     case "onLeave":
       return <Badge variant="outline" className="text-warning border-warning/30 bg-warning/10">On Leave</Badge>
     case "remote":
@@ -423,9 +423,9 @@ function AttendancePageContent() {
                                   <img
                                     src={record.checkInPhoto}
                                     alt="Punch In"
-                                    className="size-8 rounded-md object-cover ring-2 ring-emerald-500/40 hover:ring-emerald-500 transition-all"
+                                    className="size-8 rounded-md object-cover ring-2 ring-success/40 hover:ring-success transition-all"
                                   />
-                                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-emerald-500 text-[8px] text-white font-bold">I</span>
+                                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-success text-success-foreground text-[8px] font-bold">I</span>
                                 </button>
                               ) : record?.checkIn ? (
                                 <div className="size-8 rounded-md bg-muted flex items-center justify-center" title="No punch-in photo">
@@ -441,9 +441,9 @@ function AttendancePageContent() {
                                   <img
                                     src={record.checkOutPhoto}
                                     alt="Punch Out"
-                                    className="size-8 rounded-md object-cover ring-2 ring-orange-500/40 hover:ring-orange-500 transition-all"
+                                    className="size-8 rounded-md object-cover ring-2 ring-warning/40 hover:ring-warning transition-all"
                                   />
-                                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-orange-500 text-[8px] text-white font-bold">O</span>
+                                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-warning text-warning-foreground text-[8px] font-bold">O</span>
                                 </button>
                               ) : record?.checkOut ? (
                                 <div className="size-8 rounded-md bg-muted flex items-center justify-center" title="No punch-out photo">
@@ -548,7 +548,7 @@ function AttendancePageContent() {
                     const [h, m] = editCheckIn.split(":").map(Number)
                     const late = h > 10 || (h === 10 && m > 30)
                     return late ? (
-                      <p className="text-xs text-orange-500">This time will be marked as Late.</p>
+                      <p className="text-xs text-warning">This time will be marked as Late.</p>
                     ) : null
                   })()}
                 </div>

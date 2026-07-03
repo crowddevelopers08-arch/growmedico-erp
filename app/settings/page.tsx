@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { companySchema, profileSchema, changePasswordSchema, firstIssueMessage } from "@/lib/validations"
 
 const DEFAULT_NOTIFICATIONS = {
   emailNotifications: true,
@@ -33,7 +34,7 @@ const DEFAULT_NOTIFICATIONS = {
 }
 
 const DEFAULT_APPEARANCE = {
-  theme: "dark",
+  theme: "light",
   sidebarCollapsed: false,
   compactMode: false,
 }
@@ -119,12 +120,18 @@ function SettingsPageContent() {
   }, [roleLabel, session?.user?.id])
 
   const handleSaveCompany = async () => {
+    const parsed = companySchema.safeParse(companySettings)
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error))
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch("/api/settings/company", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(companySettings),
+        body: JSON.stringify(parsed.data),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -137,12 +144,18 @@ function SettingsPageContent() {
   }
 
   const handleSaveProfile = async () => {
+    const parsed = profileSchema.safeParse({ name: userSettings.name })
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error))
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch("/api/settings/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: userSettings.name }),
+        body: JSON.stringify(parsed.data),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -166,24 +179,22 @@ function SettingsPageContent() {
   }
 
   const handleChangePassword = async () => {
-    if (!passwords.current || !passwords.newPass || !passwords.confirm) {
-      toast.error("All password fields are required")
+    const parsed = changePasswordSchema.safeParse({
+      currentPassword: passwords.current,
+      newPassword: passwords.newPass,
+      confirmPassword: passwords.confirm,
+    })
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error))
       return
     }
-    if (passwords.newPass !== passwords.confirm) {
-      toast.error("New passwords do not match")
-      return
-    }
-    if (passwords.newPass.length < 8) {
-      toast.error("Password must be at least 8 characters")
-      return
-    }
+
     setLoading(true)
     try {
       const res = await fetch("/api/settings/password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword: passwords.current, newPassword: passwords.newPass }),
+        body: JSON.stringify({ currentPassword: parsed.data.currentPassword, newPassword: parsed.data.newPassword }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)

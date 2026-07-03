@@ -21,6 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { ChatInput, type MentionUser, type SendData, type Attachment } from "@/components/chat-input"
+import { channelCreateSchema, firstIssueMessage } from "@/lib/validations"
 import type { Channel, Message } from "@/lib/types"
 
 const IST = "Asia/Kolkata"
@@ -210,13 +211,21 @@ function ChannelsPageContent() {
   }
 
   const handleCreateChannel = async () => {
-    if (!channelName.trim()) return
+    const parsed = channelCreateSchema.safeParse({
+      name: channelName.trim(),
+      description: channelDesc.trim() || null,
+    })
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error))
+      return
+    }
+
     setCreating(true)
     try {
       const res = await fetch("/api/channels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: channelName.trim(), description: channelDesc.trim() || null }),
+        body: JSON.stringify(parsed.data),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Failed to create channel")
@@ -258,7 +267,7 @@ function ChannelsPageContent() {
   const getTick = (msg: Message) => {
     if (msg.senderId !== currentUserId) return null
     const readByOthers = (msg.readBy ?? []).some((id) => id !== currentUserId)
-    if (readByOthers) return <CheckCheck className="size-3.5 text-sky-400" />
+    if (readByOthers) return <CheckCheck className="size-3.5 text-info" />
     return <Check className="size-3.5 text-primary-foreground/90" />
   }
 

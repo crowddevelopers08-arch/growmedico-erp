@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
 import { Eye, EyeOff, CalendarIcon } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { Button } from "@/components/ui/button"
@@ -13,8 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
@@ -29,11 +31,34 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { useHR } from "@/lib/hr-context"
+import { employeeFormSchema } from "@/lib/validations"
 import type { Employee, Department, EmployeeStatus, AccountRole } from "@/lib/types"
+import type { z } from "zod"
 
 const departments: Department[] = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO"]
-const statuses: EmployeeStatus[] = ["present", "absent", "onLeave", "remote"]
+const statusOptions: { value: EmployeeStatus; label: string }[] = [
+  { value: "present", label: "Onsite" },
+  { value: "remote", label: "Work From Home" },
+]
 const accountRoles: AccountRole[] = ["EMPLOYEE", "MANAGER", "ADMIN"]
+
+type EmployeeFormValues = z.infer<typeof employeeFormSchema>
+
+const emptyValues: EmployeeFormValues = {
+  name: "",
+  email: "",
+  phone: "",
+  department: "Web Developer",
+  role: "",
+  accountRole: "EMPLOYEE",
+  status: "present",
+  salary: 0,
+  address: "",
+  emergencyContact: "",
+  dateOfBirth: "",
+  joinDate: new Date().toISOString().split("T")[0],
+  password: "",
+}
 
 interface EmployeeDialogProps {
   open: boolean
@@ -47,25 +72,17 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    department: "Web Developer" as Department,
-    role: "",
-    accountRole: "EMPLOYEE" as AccountRole,
-    status: "present" as EmployeeStatus,
-    salary: "",
-    address: "",
-    emergencyContact: "",
-    dateOfBirth: "",
-    joinDate: new Date().toISOString().split("T")[0],
-    password: "",
+
+  const form = useForm<EmployeeFormValues>({
+    resolver: zodResolver(employeeFormSchema),
+    defaultValues: emptyValues,
   })
 
   useEffect(() => {
+    if (!open) return
+
     if (employee && mode === "edit") {
-      setFormData({
+      form.reset({
         name: employee.name,
         email: employee.email,
         phone: employee.phone,
@@ -73,7 +90,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
         role: employee.role,
         accountRole: employee.accountRole ?? "EMPLOYEE",
         status: employee.status,
-        salary: String(employee.salary),
+        salary: employee.salary,
         address: employee.address,
         emergencyContact: employee.emergencyContact,
         dateOfBirth: employee.dateOfBirth,
@@ -81,51 +98,31 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
         password: "",
       })
     } else {
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        department: "Web Developer",
-        role: "",
-        accountRole: "EMPLOYEE",
-        status: "present",
-        salary: "",
-        address: "",
-        emergencyContact: "",
-        dateOfBirth: "",
-        joinDate: new Date().toISOString().split("T")[0],
-        password: "",
-      })
+      form.reset(emptyValues)
     }
     setShowPassword(false)
     setError(null)
-  }, [employee, mode, open])
+  }, [employee, mode, open, form])
 
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const onSubmit = async (values: EmployeeFormValues) => {
+    if (mode === "add" && !values.password) {
+      form.setError("password", { message: "Password is required" })
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
     const employeeData = {
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(formData.name)}`,
-      initials: getInitials(formData.name),
-      department: formData.department,
-      role: formData.role,
-      accountRole: formData.accountRole,
-      status: formData.status,
-      joinDate: formData.joinDate,
-      salary: Number(formData.salary),
-      address: formData.address,
-      emergencyContact: formData.emergencyContact,
-      dateOfBirth: formData.dateOfBirth,
-      ...(formData.password ? { password: formData.password } : {}),
+      ...values,
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(values.name)}`,
+      initials: getInitials(values.name),
+      ...(values.password ? { password: values.password } : {}),
     }
+    if (!values.password) delete (employeeData as { password?: string }).password
 
     try {
       if (mode === "edit" && employee) {
@@ -152,239 +149,291 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
               : "Update the employee information below."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Full name"
-                  required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Full name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="employee@company.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="employee@company.com"
-                  required
+
+              {/* Password — required for new employees, optional when editing */}
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {mode === "add" ? "Login Password" : "New Password (leave blank to keep current)"}
+                    </FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder={mode === "add" ? "Set employee login password" : "Leave blank to keep unchanged"}
+                          className="pr-10"
+                          {...field}
+                        />
+                      </FormControl>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+91 98765 43210" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-            </div>
 
-            {/* Password — required for new employees, optional when editing */}
-            <div className="space-y-2">
-              <Label htmlFor="password">
-                {mode === "add" ? "Login Password" : "New Password (leave blank to keep current)"}
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder={mode === "add" ? "Set employee login password" : "Leave blank to keep unchanged"}
-                  required={mode === "add"}
-                  className="pr-10"
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="accountRole"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Account Role</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select account role" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {accountRoles.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {role.charAt(0) + role.slice(1).toLowerCase()}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+91 98765 43210"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
-                <Select
-                  value={formData.department}
-                  onValueChange={(value: Department) => setFormData({ ...formData, department: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="role">Job Role</Label>
-                <Input
-                  id="role"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  placeholder="e.g. Software Engineer"
-                  required
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {statusOptions.map((status) => (
+                            <SelectItem key={status.value} value={status.value}>
+                              {status.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="accountRole">Account Role</Label>
-                <Select
-                  value={formData.accountRole}
-                  onValueChange={(value: AccountRole) => setFormData({ ...formData, accountRole: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select account role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accountRoles.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role.charAt(0) + role.slice(1).toLowerCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: EmployeeStatus) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status === "onLeave" ? "On Leave" : status.charAt(0).toUpperCase() + status.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="salary">Annual Salary</Label>
-                <Input
-                  id="salary"
-                  type="number"
-                  value={formData.salary}
-                  onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                  placeholder="500000"
-                  required
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="salary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Annual Salary</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="500000"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="joinDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Join Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-2 size-4" />
+                              {field.value ? format(parseISO(field.value), "dd MMM yyyy") : "Pick a date"}
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? parseISO(field.value) : undefined}
+                            onSelect={(date) => date && field.onChange(format(date, "yyyy-MM-dd"))}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Join Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn("w-full justify-start text-left font-normal", !formData.joinDate && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 size-4" />
-                      {formData.joinDate ? format(parseISO(formData.joinDate), "dd MMM yyyy") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={formData.joinDate ? parseISO(formData.joinDate) : undefined}
-                      onSelect={(date) => date && setFormData({ ...formData, joinDate: format(date, "yyyy-MM-dd") })}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Date of Birth</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn("w-full justify-start text-left font-normal", !formData.dateOfBirth && "text-muted-foreground")}
-                    >
-                      <CalendarIcon className="mr-2 size-4" />
-                      {formData.dateOfBirth ? format(parseISO(formData.dateOfBirth), "dd MMM yyyy") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={formData.dateOfBirth ? parseISO(formData.dateOfBirth) : undefined}
-                      onSelect={(date) => date && setFormData({ ...formData, dateOfBirth: format(date, "yyyy-MM-dd") })}
-                      captionLayout="dropdown"
-                      startMonth={new Date(1960, 0)}
-                      endMonth={new Date(new Date().getFullYear() - 18, 11)}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="emergencyContact">Emergency Contact</Label>
-                <Input
-                  id="emergencyContact"
-                  value={formData.emergencyContact}
-                  onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
-                  placeholder="+91 98765 43210"
-                  required
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="dateOfBirth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date of Birth</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-2 size-4" />
+                              {field.value ? format(parseISO(field.value), "dd MMM yyyy") : "Pick a date"}
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value ? parseISO(field.value) : undefined}
+                            onSelect={(date) => date && field.onChange(format(date, "yyyy-MM-dd"))}
+                            captionLayout="dropdown"
+                            startMonth={new Date(1960, 0)}
+                            endMonth={new Date(new Date().getFullYear() - 18, 11)}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="emergencyContact"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Emergency Contact</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+91 98765 43210" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Full address"
-                required
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Full address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
 
-          {error && (
-            <div className="mb-4 rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={isSubmitting}>
-              {mode === "add" ? "Add Employee" : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </form>
+            {error && (
+              <div className="mb-4 rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={isSubmitting}>
+                {mode === "add" ? "Add Employee" : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

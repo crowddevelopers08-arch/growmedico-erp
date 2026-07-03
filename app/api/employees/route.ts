@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import bcrypt from "bcryptjs"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { employeeCreateSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -72,28 +73,42 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { password, accountRole = "EMPLOYEE", ...employeeData } = body
-
-    if (!password) {
-      return NextResponse.json({ error: "Password is required" }, { status: 400 })
+    const parsed = employeeCreateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
     }
 
-    // Check if email already exists
-    const existing = await prisma.employee.findUnique({ where: { email: employeeData.email } })
-    if (existing) {
+    const { password, accountRole, ...employeeData } = parsed.data
+
+    // Check both the Employee table and the User (login) table — a login
+    // account can exist with this email even when no Employee row does yet
+    // (e.g. the admin's own account), and that would otherwise let the
+    // Employee row get created before failing on the User's unique email.
+    const [existingEmployeeEmail, existingEmployeePhone, existingUserEmail] = await Promise.all([
+      prisma.employee.findUnique({ where: { email: employeeData.email } }),
+      prisma.employee.findFirst({ where: { phone: employeeData.phone } }),
+      prisma.user.findUnique({ where: { email: employeeData.email } }),
+    ])
+    if (existingEmployeeEmail || existingUserEmail) {
       return NextResponse.json({ error: "An employee with this email already exists" }, { status: 409 })
     }
-
-    const employee = await prisma.employee.create({ data: employeeData })
+    if (existingEmployeePhone) {
+      return NextResponse.json({ error: "An employee with this phone number already exists" }, { status: 409 })
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10)
-    await prisma.user.create({
-      data: {
-        email: employee.email,
-        password: hashedPassword,
-        role: accountRole,
-        employeeId: employee.id,
-      },
+
+    const employee = await prisma.$transaction(async (tx) => {
+      const created = await tx.employee.create({ data: employeeData })
+      await tx.user.create({
+        data: {
+          email: created.email,
+          password: hashedPassword,
+          role: accountRole,
+          employeeId: created.id,
+        },
+      })
+      return created
     })
 
     await prisma.activity.create({
@@ -108,7 +123,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(employee, { status: 201 })
   } catch (err: unknown) {
     console.error("[POST /api/employees] Error:", err)
-    const message = err instanceof Error ? err.message : "Failed to create employee"
-    return NextResponse.json({ error: message }, { status: 500 })
+    const code = typeof err === "object" && err !== null && "code" in err ? String((err as { code?: unknown }).code) : ""
+    if (code === "P2002") {
+      return NextResponse.json({ error: "An employee with this email or phone number already exists" }, { status: 409 })
+    }
+    return NextResponse.json({ error: "Failed to create employee" }, { status: 500 })
   }
 }

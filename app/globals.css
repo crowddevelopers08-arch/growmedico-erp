@@ -3,88 +3,104 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ─── Black + Mint Green + Multi-Color Theme ─────────────────────── */
+/* ─── Corporate ERP Theme ─────────────────────────────────────────────
+   Brand palette (exact):
+     Primary Blue #1E3A8A · Primary Hover #1D4ED8 · Sidebar Dark #0F172A
+     Accent Teal #14B8A6 · Accent Hover #0D9488
+     App Background #F8FAFC · Card #FFFFFF · Muted #F1F5F9 · Border #E2E8F0
+     Table Row Hover #EFF6FF
+     Heading/Text #0F172A · Secondary Text #64748B · Disabled Text #94A3B8
+     Success #22C55E · Warning #F59E0B · Error #EF4444 · Info #3B82F6
+   The sidebar is always the dark navy regardless of light/dark mode, per
+   the given "dark sidebar + light content" layout. Everything below is
+   built only from these colors — white/near-white text is the only
+   unavoidable exception, needed for legibility on dark surfaces. */
 :root {
-  --background: oklch(0.09 0 0);
-  --foreground: oklch(0.96 0 0);
-  --card: oklch(0.12 0.006 162);
-  --card-foreground: oklch(0.96 0 0);
-  --popover: oklch(0.13 0.008 162);
-  --popover-foreground: oklch(0.96 0 0);
-  --primary: oklch(0.82 0.18 162);
-  --primary-foreground: oklch(0.09 0 0);
-  --secondary: oklch(0.18 0.03 162);
-  --secondary-foreground: oklch(0.82 0.18 162);
-  --muted: oklch(0.16 0.01 162);
-  --muted-foreground: oklch(0.58 0.02 162);
-  --accent: oklch(0.20 0.04 162);
-  --accent-foreground: oklch(0.82 0.18 162);
-  --destructive: oklch(0.62 0.24 27);
-  --destructive-foreground: oklch(0.96 0 0);
-  --success: oklch(0.78 0.19 142);
-  --success-foreground: oklch(0.09 0 0);
-  --warning: oklch(0.80 0.18 70);
-  --warning-foreground: oklch(0.09 0 0);
-  --border: oklch(0.22 0.03 162);
-  --input: oklch(0.15 0.02 162);
-  --ring: oklch(0.82 0.18 162);
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #1E3A8A;
+  --primary-foreground: #FFFFFF;
+  --secondary: #14B8A6;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;
+  --accent: #EFF6FF;
+  --accent-foreground: #0F172A;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --success: #22C55E;
+  --success-foreground: #0F172A;
+  --warning: #F59E0B;
+  --warning-foreground: #0F172A;
+  --info: #3B82F6;
+  --info-foreground: #FFFFFF;
+  --border: #E2E8F0;
+  --input: #E2E8F0;
+  --ring: #1E3A8A;
 
-  /* Vivid chart colors */
-  --chart-1: oklch(0.68 0.22 250);   /* violet-blue */
-  --chart-2: oklch(0.82 0.18 162);   /* mint green */
-  --chart-3: oklch(0.80 0.19 70);    /* amber */
-  --chart-4: oklch(0.68 0.24 30);    /* orange-red */
-  --chart-5: oklch(0.70 0.20 300);   /* purple */
+  /* Dashboard-card colors, as specified: Revenue/Finance, Active Projects,
+     Pending Tasks, Team Performance, Overdue Items. */
+  --chart-1: #1E3A8A;
+  --chart-2: #14B8A6;
+  --chart-3: #F59E0B;
+  --chart-4: #22C55E;
+  --chart-5: #EF4444;
 
   --radius: 0.5rem;
 
-  --sidebar: oklch(0.07 0 0);
-  --sidebar-foreground: oklch(0.96 0 0);
-  --sidebar-primary: oklch(0.82 0.18 162);
-  --sidebar-primary-foreground: oklch(0.09 0 0);
-  --sidebar-accent: oklch(0.15 0.03 162);
-  --sidebar-accent-foreground: oklch(0.82 0.18 162);
-  --sidebar-border: oklch(0.18 0.03 162);
-  --sidebar-ring: oklch(0.82 0.18 162);
+  --sidebar: #0F172A;
+  --sidebar-foreground: #E2E8F0;
+  --sidebar-primary: #14B8A6;
+  --sidebar-primary-foreground: #0F172A;
+  --sidebar-accent: #1E3A8A;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #333A4A;
+  --sidebar-ring: #14B8A6;
 }
 
 .dark {
-  --background: oklch(0.09 0 0);
-  --foreground: oklch(0.96 0 0);
-  --card: oklch(0.12 0.006 162);
-  --card-foreground: oklch(0.96 0 0);
-  --popover: oklch(0.13 0.008 162);
-  --popover-foreground: oklch(0.96 0 0);
-  --primary: oklch(0.82 0.18 162);
-  --primary-foreground: oklch(0.09 0 0);
-  --secondary: oklch(0.18 0.03 162);
-  --secondary-foreground: oklch(0.82 0.18 162);
-  --muted: oklch(0.16 0.01 162);
-  --muted-foreground: oklch(0.58 0.02 162);
-  --accent: oklch(0.20 0.04 162);
-  --accent-foreground: oklch(0.82 0.18 162);
-  --destructive: oklch(0.62 0.24 27);
-  --destructive-foreground: oklch(0.96 0 0);
-  --success: oklch(0.78 0.19 142);
-  --success-foreground: oklch(0.09 0 0);
-  --warning: oklch(0.80 0.18 70);
-  --warning-foreground: oklch(0.09 0 0);
-  --border: oklch(0.22 0.03 162);
-  --input: oklch(0.15 0.02 162);
-  --ring: oklch(0.82 0.18 162);
-  --chart-1: oklch(0.68 0.22 250);
-  --chart-2: oklch(0.82 0.18 162);
-  --chart-3: oklch(0.80 0.19 70);
-  --chart-4: oklch(0.68 0.24 30);
-  --chart-5: oklch(0.70 0.20 300);
-  --sidebar: oklch(0.07 0 0);
-  --sidebar-foreground: oklch(0.96 0 0);
-  --sidebar-primary: oklch(0.82 0.18 162);
-  --sidebar-primary-foreground: oklch(0.09 0 0);
-  --sidebar-accent: oklch(0.15 0.03 162);
-  --sidebar-accent-foreground: oklch(0.82 0.18 162);
-  --sidebar-border: oklch(0.18 0.03 162);
-  --sidebar-ring: oklch(0.82 0.18 162);
+  --background: #0F172A;
+  --foreground: #E2E8F0;
+  --card: #1B2536;
+  --card-foreground: #E2E8F0;
+  --popover: #1B2536;
+  --popover-foreground: #E2E8F0;
+  --primary: #1D4ED8;
+  --primary-foreground: #FFFFFF;
+  --secondary: #14B8A6;
+  --secondary-foreground: #0F172A;
+  --muted: #1B2536;
+  --muted-foreground: #94A3B8;
+  --accent: #1E3A8A;
+  --accent-foreground: #FFFFFF;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --success: #22C55E;
+  --success-foreground: #0F172A;
+  --warning: #F59E0B;
+  --warning-foreground: #0F172A;
+  --info: #3B82F6;
+  --info-foreground: #FFFFFF;
+  --border: #333A4A;
+  --input: #333A4A;
+  --ring: #1D4ED8;
+  --chart-1: #1D4ED8;
+  --chart-2: #14B8A6;
+  --chart-3: #F59E0B;
+  --chart-4: #22C55E;
+  --chart-5: #EF4444;
+  --sidebar: #0F172A;
+  --sidebar-foreground: #E2E8F0;
+  --sidebar-primary: #14B8A6;
+  --sidebar-primary-foreground: #0F172A;
+  --sidebar-accent: #1E3A8A;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #333A4A;
+  --sidebar-ring: #14B8A6;
 }
 
 @theme inline {
@@ -110,6 +126,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -141,11 +159,10 @@
   }
 }
 
-/* Mint green scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: oklch(0.11 0 0); }
-::-webkit-scrollbar-thumb { background: oklch(0.28 0.07 162); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: oklch(0.82 0.18 162); }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #1D4ED8; }
 
 @layer utilities {
   .transition-colors-smooth {
@@ -153,7 +170,7 @@
   }
   /* Gradient text utility */
   .text-gradient-mint {
-    background: linear-gradient(135deg, oklch(0.82 0.18 162), oklch(0.70 0.20 200));
+    background: linear-gradient(135deg, #1E3A8A, #14B8A6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

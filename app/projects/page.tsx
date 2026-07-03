@@ -33,6 +33,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useHR } from "@/lib/hr-context"
 import { cn } from "@/lib/utils"
+import { taskCreateSchema, projectCreateSchema, firstIssueMessage } from "@/lib/validations"
 import type { ClientProject, Employee, ProjectStatus, Task, TaskPriority, TaskStatus } from "@/lib/types"
 
 type ProjectWithCount = ClientProject & { _count?: { tasks: number } }
@@ -342,8 +343,17 @@ function ProjectsPageContent() {
   }
 
   const handleProjectCreate = async () => {
-    if (!projectClientName.trim()) {
-      toast.error("Client name is required")
+    const parsed = projectCreateSchema.safeParse({
+      clientName: projectClientName.trim(),
+      name: projectClientName.trim(),
+      description: projectDescription.trim() || null,
+      dueDate: projectDueDate || null,
+      priority: projectPriority,
+      status: "in_progress",
+      memberIds: projectMemberIds,
+    })
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error))
       return
     }
 
@@ -352,15 +362,7 @@ function ProjectsPageContent() {
       const response = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientName: projectClientName.trim(),
-          name: projectClientName.trim(),
-          description: projectDescription.trim() || null,
-          dueDate: projectDueDate || null,
-          priority: projectPriority,
-          status: "in_progress",
-          memberIds: projectMemberIds,
-        }),
+        body: JSON.stringify(parsed.data),
       })
 
       const payload = await response.json()
@@ -448,8 +450,24 @@ function ProjectsPageContent() {
   }
 
   const handleTaskSave = async () => {
-    if (!selectedProject || !taskTitle.trim() || !taskAssigneeId) {
-      toast.error("Task title and assignee are required")
+    if (!selectedProject) {
+      toast.error("Select a project first")
+      return
+    }
+
+    const parsed = taskCreateSchema.safeParse({
+      title: taskTitle.trim(),
+      description: taskDescription.trim() || null,
+      assignedToId: taskAssigneeId,
+      collaborators: taskCollaboratorIds,
+      priority: taskPriority,
+      status: taskStatus,
+      stage: !editingTask ? taskStageOverride ?? undefined : undefined,
+      dueDate: taskDueDate || null,
+      projectId: selectedProject.id,
+    })
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error))
       return
     }
 
@@ -458,17 +476,7 @@ function ProjectsPageContent() {
       const response = await fetch(editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks", {
         method: editingTask ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: taskTitle.trim(),
-          description: taskDescription.trim() || null,
-          assignedToId: taskAssigneeId,
-          collaborators: taskCollaboratorIds,
-          priority: taskPriority,
-          status: taskStatus,
-          stage: !editingTask ? taskStageOverride ?? undefined : undefined,
-          dueDate: taskDueDate || null,
-          projectId: selectedProject.id,
-        }),
+        body: JSON.stringify(parsed.data),
       })
 
       const payload = await response.json().catch(() => null)

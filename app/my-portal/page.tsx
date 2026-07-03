@@ -62,6 +62,7 @@ function to12h(time: string | null | undefined): string {
 }
 import type { LeaveType } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { leaveRequestSchema, firstIssueMessage } from "@/lib/validations"
 
 const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"]
 
@@ -195,24 +196,31 @@ function MyPortalContent() {
 
   const handleSubmitLeave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!startDate || !endDate || !reason) return
+
+    const parsed = leaveRequestSchema.safeParse({
+      employeeId: CURRENT_EMPLOYEE_ID,
+      type: leaveType,
+      startDate: startDate ? startDate.toISOString().split("T")[0] : "",
+      endDate: endDate ? endDate.toISOString().split("T")[0] : "",
+      days: calculateDays(),
+      reason,
+    })
+    if (!parsed.success) {
+      toast.error(firstIssueMessage(parsed.error))
+      return
+    }
 
     setLeaveSubmitting(true)
     try {
-      await addLeaveRequest({
-        employeeId: CURRENT_EMPLOYEE_ID,
-        type: leaveType,
-        startDate: startDate.toISOString().split("T")[0],
-        endDate: endDate.toISOString().split("T")[0],
-        days: calculateDays(),
-        reason,
-      })
-      
+      await addLeaveRequest(parsed.data)
+
       setLeaveDialogOpen(false)
       setLeaveType("Casual Leave")
       setStartDate(undefined)
       setEndDate(undefined)
       setReason("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to submit leave request")
     } finally {
       setLeaveSubmitting(false)
     }
@@ -229,7 +237,7 @@ function MyPortalContent() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
-        return <Badge variant="default" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">Approved</Badge>
+        return <Badge variant="default" className="bg-success/10 text-success border-success/20">Approved</Badge>
       case "rejected":
         return <Badge variant="destructive">Rejected</Badge>
       default:
@@ -392,7 +400,7 @@ function MyPortalContent() {
               ) : isCheckedIn ? (
                 <div className="w-full space-y-2">
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="size-4 text-emerald-500" />
+                    <Clock className="size-4 text-success" />
                     <span>Checked in at {to12h(todayAttendance.checkIn)}</span>
                   </div>
                   <Button onClick={handleCheckOut} size="lg" variant="outline" className="w-full gap-2" loading={punchSubmitting} disabled={punchSubmitting}>
@@ -406,7 +414,7 @@ function MyPortalContent() {
                     <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{to12h(todayAttendance.checkIn)}</span></span>
                     <span className="text-muted-foreground">Out: <span className="text-foreground font-medium">{to12h(todayAttendance.checkOut)}</span></span>
                   </div>
-                  <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600">
+                  <Badge variant="secondary" className="bg-success/10 text-success">
                     <CheckCircle2 className="size-3 mr-1" />
                     Completed - {todayAttendance.workHours}h
                   </Badge>
@@ -436,8 +444,8 @@ function MyPortalContent() {
         <Card className="border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                <Timer className="size-5 text-emerald-600" />
+              <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
+                <Timer className="size-5 text-success" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{totalWorkHours.toFixed(1)}h</p>
@@ -450,8 +458,8 @@ function MyPortalContent() {
         <Card className="border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-500/10">
-                <TrendingUp className="size-5 text-amber-600" />
+              <div className="flex size-10 items-center justify-center rounded-lg bg-warning/10">
+                <TrendingUp className="size-5 text-warning" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{totalOvertime.toFixed(1)}h</p>
@@ -464,8 +472,8 @@ function MyPortalContent() {
         <Card className="border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10">
-                <HourglassIcon className="size-5 text-blue-600" />
+              <div className="flex size-10 items-center justify-center rounded-lg bg-info/10">
+                <HourglassIcon className="size-5 text-info" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{pendingRequests.length}</p>

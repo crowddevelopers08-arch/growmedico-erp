@@ -100,9 +100,9 @@ export function CameraPunchDialog({ open, onOpenChange, action, onConfirm }: Cam
         <DialogHeader className="px-6 pt-6 pb-0">
           <DialogTitle className="flex items-center gap-2">
             {action === "in" ? (
-              <LogIn className="size-4 text-emerald-500" />
+              <LogIn className="size-4 text-success" />
             ) : (
-              <LogOut className="size-4 text-orange-500" />
+              <LogOut className="size-4 text-warning" />
             )}
             Punch {action === "in" ? "In" : "Out"}
           </DialogTitle>

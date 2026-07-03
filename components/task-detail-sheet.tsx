@@ -66,15 +66,15 @@ function PersonCard({
 }
 
 const priorityConfig: Record<TaskPriority, { label: string; class: string }> = {
-  low:    { label: "Low",    class: "bg-slate-500/10 text-slate-500 border-slate-500/20" },
-  medium: { label: "Medium", class: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
-  high:   { label: "High",   class: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
-  urgent: { label: "Urgent", class: "bg-red-500/10 text-red-600 border-red-500/20" },
+  low:    { label: "Low",    class: "bg-muted text-muted-foreground border-border" },
+  medium: { label: "Medium", class: "bg-info/10 text-info border-info/20" },
+  high:   { label: "High",   class: "bg-warning/10 text-warning border-warning/20" },
+  urgent: { label: "Urgent", class: "bg-destructive/10 text-destructive border-destructive/20" },
 }
 
 const statusConfig: Record<TaskStatus, { label: string; icon: React.ElementType; class: string }> = {
   pending:     { label: "Pending",     icon: Clock,        class: "bg-warning/10 text-warning border-warning/20" },
-  in_progress: { label: "In Progress", icon: CircleDot,    class: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
+  in_progress: { label: "In Progress", icon: CircleDot,    class: "bg-info/10 text-info border-info/20" },
   completed:   { label: "Completed",   icon: CheckCircle2, class: "bg-success/10 text-success border-success/20" },
   cancelled:   { label: "Cancelled",   icon: AlertCircle,  class: "bg-muted text-muted-foreground border-border" },
 }
@@ -246,9 +246,9 @@ export function TaskDetailSheet({
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/50">
             <div className="flex items-start gap-3">
               <div className={`mt-1 size-2.5 rounded-full shrink-0 ${
-                task.priority === "urgent" ? "bg-red-500" :
-                task.priority === "high" ? "bg-orange-500" :
-                task.priority === "medium" ? "bg-blue-500" : "bg-slate-400"
+                task.priority === "urgent" ? "bg-destructive" :
+                task.priority === "high" ? "bg-warning" :
+                task.priority === "medium" ? "bg-info" : "bg-muted-foreground"
               }`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
@@ -275,7 +275,7 @@ export function TaskDetailSheet({
               <Badge variant="outline" className={`text-xs gap-1 ${statusConfig[task.status].class}`}>
                 <StatusIcon className="size-3" />{statusConfig[task.status].label}
               </Badge>
-              {isOverdue && <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/20">Overdue</Badge>}
+              {isOverdue && <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -303,7 +303,7 @@ export function TaskDetailSheet({
 
             <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
               {task.dueDate && (
-                <div className={`flex items-center gap-1.5 ${isOverdue ? "text-red-500" : ""}`}>
+                <div className={`flex items-center gap-1.5 ${isOverdue ? "text-destructive" : ""}`}>
                   <CalendarIcon className="size-3.5" />
                   <span>Due {new Date(task.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                 </div>
