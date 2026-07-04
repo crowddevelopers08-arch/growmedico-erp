@@ -656,7 +656,7 @@ function TasksPageContent() {
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md sm:max-h-[85vh] sm:overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editTask ? "Edit Task" : isSelfTaskDialog ? "Add Self Task" : "Assign Task"}</DialogTitle>
             <DialogDescription>
@@ -667,8 +667,8 @@ function TasksPageContent() {
                 : "Assign a task to a team member under a client project."}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
+          <div className="grid gap-3 py-1">
+            <div className="space-y-1.5">
               <Label>Client Project *</Label>
               <Select value={formProjectId} onValueChange={setFormProjectId}>
                 <SelectTrigger><SelectValue placeholder="Select client project" /></SelectTrigger>
@@ -679,13 +679,13 @@ function TasksPageContent() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Title *</Label>
               <Input placeholder="Task title" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Description</Label>
-              <Textarea placeholder="Optional description..." rows={3} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} />
+              <Textarea placeholder="Optional description..." rows={2} value={formDesc} onChange={(e) => setFormDesc(e.target.value)} />
             </div>
             {isSelfTaskDialog && !editTask && (
               !employeeId ? (
@@ -695,7 +695,7 @@ function TasksPageContent() {
               ) : null
             )}
             {isAdmin && !isSelfTaskDialog && !editTask && (
-              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+              <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <Label htmlFor="delegate-toggle">Delegate through a manager</Label>
@@ -704,7 +704,7 @@ function TasksPageContent() {
                   <Switch id="delegate-toggle" checked={formDelegate} onCheckedChange={setFormDelegate} />
                 </div>
                 {formDelegate && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label>Manager *</Label>
                     <Select value={formManagerId} onValueChange={setFormManagerId}>
                       <SelectTrigger>
@@ -730,7 +730,7 @@ function TasksPageContent() {
             )}
             <div className={isSelfTaskDialog || formDelegate ? "grid gap-3" : "grid grid-cols-2 gap-3"}>
               {!isSelfTaskDialog && !formDelegate && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Assign To *</Label>
                   {editTask ? (
                     <Select value={formAssignees[0] ?? ""} onValueChange={(value) => setFormAssignees([value])}>
@@ -775,7 +775,7 @@ function TasksPageContent() {
                   )}
                 </div>
               )}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Priority</Label>
                 <Select value={formPriority} onValueChange={(value) => setFormPriority(value as TaskPriority)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -785,33 +785,35 @@ function TasksPageContent() {
                 </Select>
               </div>
             </div>
-            {!isSelfTaskDialog && !formDelegate && (
-              <div className="space-y-2">
-                <Label>Collaborators</Label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start font-normal" disabled={assignableProjectMembers.length === 0}>
-                      {assignableProjectMembers.length === 0 ? "Add project members first" : formCollaboratorIds.length === 0 ? "Select collaborators" : `${formCollaboratorIds.length} selected`}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
-                    {assignableProjectMembers.map((employee) => (
-                      <DropdownMenuCheckboxItem
-                        key={employee.id}
-                        checked={formCollaboratorIds.includes(employee.id)}
-                        onCheckedChange={(checked) => toggleFormCollaborator(employee.id, checked === true)}
-                      >
-                        {employee.name}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <p className="text-xs text-muted-foreground">Optional teammates who help on this task alongside the assignee.</p>
+            <div className={!isSelfTaskDialog && !formDelegate ? "grid gap-3 sm:grid-cols-2" : "grid gap-3"}>
+              {!isSelfTaskDialog && !formDelegate && (
+                <div className="space-y-1.5">
+                  <Label>Collaborators</Label>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start font-normal" disabled={assignableProjectMembers.length === 0}>
+                        {assignableProjectMembers.length === 0 ? "Add project members first" : formCollaboratorIds.length === 0 ? "Select collaborators" : `${formCollaboratorIds.length} selected`}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
+                      {assignableProjectMembers.map((employee) => (
+                        <DropdownMenuCheckboxItem
+                          key={employee.id}
+                          checked={formCollaboratorIds.includes(employee.id)}
+                          onCheckedChange={(checked) => toggleFormCollaborator(employee.id, checked === true)}
+                        >
+                          {employee.name}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <p className="text-xs text-muted-foreground">Optional teammates who help on this task alongside the assignee.</p>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>Due Date</Label>
+                <Input type="date" value={formDueDate} onChange={(e) => setFormDueDate(e.target.value)} />
               </div>
-            )}
-            <div className="space-y-2">
-              <Label>Due Date</Label>
-              <Input type="date" value={formDueDate} onChange={(e) => setFormDueDate(e.target.value)} />
             </div>
           </div>
           <DialogFooter>

@@ -56,8 +56,8 @@ export default function LoginPage() {
             priority
           />
           <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">Grow Medico</h1>
-            <p className="text-sm text-muted-foreground">Healthcare Digital Marketing Agency</p>
+            {/* <h1 className="text-xl font-bold tracking-tight text-foreground">Grow Medico</h1> */}
+            <p className="text-xl text-muted-foreground">Healthcare Digital Marketing Agency</p>
           </div>
         </div>
 

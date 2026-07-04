@@ -22,7 +22,7 @@ export function LoadingScreen() {
         </div>
 
         {/* App name */}
-        <div className="text-center space-y-1">
+        <div className="text-center mt-10 space-y-1">
           <p className="text-sm font-semibold text-foreground tracking-wide">Grow Medico</p>
           <p className="text-xs text-muted-foreground">Healthcare Digital Marketing Agency</p>
         </div>
