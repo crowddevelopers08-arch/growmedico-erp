@@ -15,6 +15,7 @@ import {
   MessageSquare,
   FolderKanban,
   Bell,
+  Network,
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -50,6 +51,7 @@ const adminNavItems = [
   { title: "My Portal", href: "/my-portal", icon: UserCircle },
   { title: "Notifications", href: "/notifications", icon: Bell },
   { title: "Employees", href: "/employees", icon: Users },
+  { title: "Team Directory", href: "/team", icon: Network },
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
   { title: "Salary", href: "/salary", icon: DollarSign },
@@ -61,6 +63,7 @@ const employeeNavItems = [
   { title: "My Portal", href: "/my-portal", icon: UserCircle },
   { title: "Notifications", href: "/notifications", icon: Bell },
   { title: "Employees", href: "/employees", icon: Users },
+  { title: "Team Directory", href: "/team", icon: Network },
   { title: "Attendance", href: "/attendance", icon: Clock },
   { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
   { title: "Tasks", href: "/tasks", icon: ClipboardList },
@@ -286,7 +289,7 @@ export function AppSidebar() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col items-start text-left group-data-[collapsible=icon]:hidden">
-                    <span className="text-sm font-medium text-foreground">{userName}</span>
+                    <span className="text-sm font-medium text-white">{userName}</span>
                     <span className="text-xs text-muted-foreground">{roleLabel}</span>
                   </div>
                   <ChevronDown className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />

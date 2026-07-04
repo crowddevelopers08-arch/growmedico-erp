@@ -31,6 +31,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { useHR } from "@/lib/hr-context"
 import { TaskDetailSheet } from "@/components/task-detail-sheet"
 import { taskCreateSchema, firstIssueMessage } from "@/lib/validations"
@@ -112,6 +113,8 @@ function TasksPageContent() {
   const [formProjectId, setFormProjectId] = useState("")
   const [formAssignees, setFormAssignees] = useState<string[]>([])
   const [formCollaboratorIds, setFormCollaboratorIds] = useState<string[]>([])
+  const [formDelegate, setFormDelegate] = useState(false)
+  const [formManagerId, setFormManagerId] = useState("")
   const [formPriority, setFormPriority] = useState<TaskPriority>("medium")
   const [formDueDate, setFormDueDate] = useState("")
 
@@ -127,6 +130,17 @@ function TasksPageContent() {
       .map((member) => employees.find((employee) => employee.id === member.employeeId) ?? member.employee)
       .filter((employee): employee is Employee => Boolean(employee))
   }, [employees, selectedFormProject])
+
+  // Flow 1 (Admin → Manager → Employee): only project members with a MANAGER
+  // login can receive a delegated task. Resolved from the full employee list
+  // since project members carry no account role.
+  const delegatableManagers = useMemo(
+    () =>
+      assignableProjectMembers.filter(
+        (member) => employees.find((employee) => employee.id === member.id)?.accountRole === "MANAGER"
+      ),
+    [assignableProjectMembers, employees]
+  )
 
   const loadTasks = useCallback(async () => {
     const res = await fetch("/api/tasks")
@@ -157,6 +171,8 @@ function TasksPageContent() {
     setFormProjectId("")
     setFormAssignees(activeList === "self" && session?.user?.employeeId ? [session.user.employeeId] : [])
     setFormCollaboratorIds([])
+    setFormDelegate(false)
+    setFormManagerId("")
     setFormPriority("medium")
     setFormDueDate("")
     setDialogOpen(true)
@@ -169,6 +185,10 @@ function TasksPageContent() {
     setFormProjectId(task.projectId ?? "")
     setFormAssignees([task.assignedToId])
     setFormCollaboratorIds(task.collaborators ?? [])
+    // Delegation is chosen at creation only; editing reassigns the current
+    // assignee while the recorded manager is preserved server-side.
+    setFormDelegate(false)
+    setFormManagerId("")
     setFormPriority(task.priority)
     setFormDueDate(task.dueDate ?? "")
     setDialogOpen(true)
@@ -205,6 +225,13 @@ function TasksPageContent() {
   }, [assignableProjectMembers, dialogOpen, formCollaboratorIds])
 
   useEffect(() => {
+    if (!dialogOpen || !formDelegate) return
+    if (formManagerId && !delegatableManagers.some((employee) => employee.id === formManagerId)) {
+      setFormManagerId("")
+    }
+  }, [dialogOpen, formDelegate, formManagerId, delegatableManagers])
+
+  useEffect(() => {
     if (!dialogOpen || editTask || activeList !== "self") return
     const selfId = session?.user?.employeeId
     const isValidMember = selfId && assignableProjectMembers.some((employee) => employee.id === selfId)
@@ -212,7 +239,12 @@ function TasksPageContent() {
   }, [dialogOpen, editTask, activeList, assignableProjectMembers, session?.user?.employeeId])
 
   const handleSave = async () => {
-    if (formAssignees.length === 0) {
+    const delegating = formDelegate && !editTask
+    if (delegating && !formManagerId) {
+      toast.error("Select the manager to delegate this task to")
+      return
+    }
+    if (!delegating && formAssignees.length === 0) {
       toast.error("Select who this task is assigned to")
       return
     }
@@ -221,8 +253,9 @@ function TasksPageContent() {
       title: formTitle.trim(),
       description: formDesc.trim() || null,
       projectId: formProjectId,
-      assignedToId: formAssignees[0],
-      collaborators: formCollaboratorIds,
+      assignedToId: delegating ? formManagerId : formAssignees[0],
+      managerId: delegating ? formManagerId : null,
+      collaborators: delegating ? [] : formCollaboratorIds,
       priority: formPriority,
       dueDate: formDueDate || null,
     })
@@ -234,6 +267,27 @@ function TasksPageContent() {
     setSaving(true)
 
     try {
+      if (delegating) {
+        const res = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: formTitle.trim(),
+            description: formDesc.trim() || null,
+            projectId: formProjectId,
+            assignedToId: formManagerId,
+            managerId: formManagerId,
+            priority: formPriority,
+            dueDate: formDueDate || null,
+          }),
+        })
+        if (!res.ok) throw new Error((await res.json()).error)
+        toast.success("Task delegated to manager")
+        setDialogOpen(false)
+        await loadTasks()
+        return
+      }
+
       if (editTask) {
         const payload = {
           title: formTitle.trim(),
@@ -529,6 +583,17 @@ function TasksPageContent() {
                             <span>{employee.name}</span>
                           </div>
                         )}
+                        {task.managerId && task.managerId !== task.assignedToId && task.managerName && (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Handshake className="size-3" />
+                            <span>via {task.managerName}</span>
+                          </div>
+                        )}
+                        {task.managerId && task.managerId === task.assignedToId && (
+                          <Badge variant="outline" className="text-[10px] gap-1 bg-warning/10 text-warning border-warning/20">
+                            <Handshake className="size-3" />Awaiting delegation
+                          </Badge>
+                        )}
                         {task.dueDate && (
                           <div className={`flex items-center gap-1 ${overdue ? "text-destructive" : ""}`}>
                             <CalendarIcon className="size-3" />
@@ -629,8 +694,42 @@ function TasksPageContent() {
                 <p className="text-xs text-destructive">You&apos;re not a member of this project, so you can&apos;t self-assign a task here. Pick a project you belong to, or ask an admin to add you as a member.</p>
               ) : null
             )}
-            <div className={isSelfTaskDialog ? "grid gap-3" : "grid grid-cols-2 gap-3"}>
-              {!isSelfTaskDialog && (
+            {isAdmin && !isSelfTaskDialog && !editTask && (
+              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="delegate-toggle">Delegate through a manager</Label>
+                    <p className="text-xs text-muted-foreground">Assign to a manager who then hands it to a team member.</p>
+                  </div>
+                  <Switch id="delegate-toggle" checked={formDelegate} onCheckedChange={setFormDelegate} />
+                </div>
+                {formDelegate && (
+                  <div className="space-y-2">
+                    <Label>Manager *</Label>
+                    <Select value={formManagerId} onValueChange={setFormManagerId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={delegatableManagers.length === 0 ? "No managers in this project" : "Select manager"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {delegatableManagers.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="size-5"><AvatarImage src={employee.avatar} /><AvatarFallback className="text-[9px]">{employee.initials}</AvatarFallback></Avatar>
+                              {employee.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {formProjectId && delegatableManagers.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Add a manager as a project member to delegate here.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className={isSelfTaskDialog || formDelegate ? "grid gap-3" : "grid grid-cols-2 gap-3"}>
+              {!isSelfTaskDialog && !formDelegate && (
                 <div className="space-y-2">
                   <Label>Assign To *</Label>
                   {editTask ? (
@@ -686,7 +785,7 @@ function TasksPageContent() {
                 </Select>
               </div>
             </div>
-            {!isSelfTaskDialog && (
+            {!isSelfTaskDialog && !formDelegate && (
               <div className="space-y-2">
                 <Label>Collaborators</Label>
                 <DropdownMenu>
@@ -717,8 +816,8 @@ function TasksPageContent() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} loading={saving} disabled={!formTitle.trim() || formAssignees.length === 0 || !formProjectId}>
-              {editTask ? "Update Task" : "Assign Task"}
+            <Button onClick={handleSave} loading={saving} disabled={!formTitle.trim() || !formProjectId || (formDelegate ? !formManagerId : formAssignees.length === 0)}>
+              {editTask ? "Update Task" : formDelegate ? "Delegate Task" : "Assign Task"}
             </Button>
           </DialogFooter>
         </DialogContent>

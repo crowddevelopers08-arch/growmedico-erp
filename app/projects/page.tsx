@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   ClipboardList,
   FolderKanban,
+  Handshake,
   Info,
   Layers,
   Plus,
@@ -29,6 +30,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { useHR } from "@/lib/hr-context"
@@ -174,6 +176,8 @@ function ProjectsPageContent() {
   const [taskStatus, setTaskStatus] = useState<TaskStatus>("pending")
   const [taskDueDate, setTaskDueDate] = useState("")
   const [taskStageOverride, setTaskStageOverride] = useState<string | null>(null)
+  const [taskDelegate, setTaskDelegate] = useState(false)
+  const [taskManagerId, setTaskManagerId] = useState("")
 
   const loadProjects = useCallback(async () => {
     const response = await fetch("/api/projects")
@@ -254,6 +258,16 @@ function ProjectsPageContent() {
       .filter((employee): employee is Employee => Boolean(employee))
   }, [employees, selectedProject])
 
+  // Flow 1 (Admin → Manager → Employee): project members whose login is a MANAGER
+  // can receive a delegated task. Account role comes from the full employee list.
+  const delegatableManagers = useMemo(
+    () =>
+      assignableProjectMembers.filter(
+        (member) => employees.find((employee) => employee.id === member.id)?.accountRole === "MANAGER"
+      ),
+    [assignableProjectMembers, employees]
+  )
+
   // The project's own managed stage list is the single source of truth for the board.
   // Removing a stage reassigns its tasks elsewhere (see handleStagesSave), so this never
   // needs to fall back to stray stage strings left on tasks.
@@ -301,6 +315,8 @@ function ProjectsPageContent() {
     setTaskStatus("pending")
     setTaskDueDate("")
     setTaskStageOverride(null)
+    setTaskDelegate(false)
+    setTaskManagerId("")
   }
 
   const openAddTaskForStage = (stage: string) => {
@@ -455,11 +471,18 @@ function ProjectsPageContent() {
       return
     }
 
+    const delegating = taskDelegate && !editingTask
+    if (delegating && !taskManagerId) {
+      toast.error("Select the manager to delegate this task to")
+      return
+    }
+
     const parsed = taskCreateSchema.safeParse({
       title: taskTitle.trim(),
       description: taskDescription.trim() || null,
-      assignedToId: taskAssigneeId,
-      collaborators: taskCollaboratorIds,
+      assignedToId: delegating ? taskManagerId : taskAssigneeId,
+      managerId: delegating ? taskManagerId : null,
+      collaborators: delegating ? [] : taskCollaboratorIds,
       priority: taskPriority,
       status: taskStatus,
       stage: !editingTask ? taskStageOverride ?? undefined : undefined,
@@ -488,7 +511,7 @@ function ProjectsPageContent() {
       await loadTasks()
       resetTaskForm()
       setTaskDialogOpen(false)
-      toast.success(editingTask ? "Task updated" : "Task created")
+      toast.success(editingTask ? "Task updated" : delegating ? "Task delegated to manager" : "Task created")
     } finally {
       setTaskSaving(false)
     }
@@ -567,6 +590,10 @@ function ProjectsPageContent() {
     setTaskPriority(task.priority)
     setTaskStatus(task.status)
     setTaskDueDate(task.dueDate ?? "")
+    // Delegation is chosen at creation only; editing reassigns the current
+    // assignee while the recorded manager is preserved server-side.
+    setTaskDelegate(false)
+    setTaskManagerId("")
     setTaskDialogOpen(true)
   }
 
@@ -589,6 +616,13 @@ function ProjectsPageContent() {
     if (!taskDialogOpen) return
     setTaskCollaboratorIds((prev) => prev.filter((id) => id !== taskAssigneeId && assignableProjectMembers.some((employee) => employee.id === id)))
   }, [assignableProjectMembers, taskAssigneeId, taskDialogOpen])
+
+  useEffect(() => {
+    if (!taskDialogOpen || !taskDelegate) return
+    if (taskManagerId && !delegatableManagers.some((employee) => employee.id === taskManagerId)) {
+      setTaskManagerId("")
+    }
+  }, [taskDialogOpen, taskDelegate, taskManagerId, delegatableManagers])
 
   if (loading) {
     return <div className="grid min-h-[70vh] place-items-center rounded-[28px] border bg-card text-muted-foreground">Loading projects workspace...</div>
@@ -793,16 +827,49 @@ function ProjectsPageContent() {
           <div className="grid gap-4 py-3">
             <div className="space-y-2"><Label>Task Title*</Label><Input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Enter task title" className="bg-background" /></div>
             <div className="space-y-2"><Label>Description</Label><Textarea value={taskDescription} onChange={(event) => setTaskDescription(event.target.value)} placeholder="Add task context" rows={4} className="bg-background" /></div>
-            <div className="space-y-2"><Label>Assignee*</Label><Select value={taskAssigneeId} onValueChange={setTaskAssigneeId} disabled={assignableProjectMembers.length === 0}><SelectTrigger className="bg-background"><SelectValue placeholder={assignableProjectMembers.length === 0 ? "Add project members first" : "Select project member"} /></SelectTrigger><SelectContent>{assignableProjectMembers.map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.name}</SelectItem>)}</SelectContent></Select>{assignableProjectMembers.length === 0 && <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>}</div>
-            <MemberSelector
-              employees={assignableProjectMembers.filter((employee) => employee.id !== taskAssigneeId)}
-              selectedIds={taskCollaboratorIds}
-              onToggle={toggleTaskCollaborator}
-              label="Collaborators"
-            />
+            {isAdmin && !editingTask && (
+              <div className="space-y-3 rounded-2xl border border-border bg-muted/30 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="project-delegate-toggle">Delegate through a manager</Label>
+                    <p className="text-xs text-muted-foreground">Assign to a manager who then hands it to a team member.</p>
+                  </div>
+                  <Switch id="project-delegate-toggle" checked={taskDelegate} onCheckedChange={setTaskDelegate} />
+                </div>
+                {taskDelegate && (
+                  <div className="space-y-2">
+                    <Label>Manager*</Label>
+                    <Select value={taskManagerId} onValueChange={setTaskManagerId}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder={delegatableManagers.length === 0 ? "No managers in this project" : "Select manager"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {delegatableManagers.map((employee) => (
+                          <SelectItem key={employee.id} value={employee.id}>
+                            <span className="flex items-center gap-2"><Handshake className="size-3.5" />{employee.name}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {delegatableManagers.length === 0 && <p className="text-xs text-muted-foreground">Add a manager as a project member to delegate here.</p>}
+                  </div>
+                )}
+              </div>
+            )}
+            {!taskDelegate && (
+              <div className="space-y-2"><Label>Assignee*</Label><Select value={taskAssigneeId} onValueChange={setTaskAssigneeId} disabled={assignableProjectMembers.length === 0}><SelectTrigger className="bg-background"><SelectValue placeholder={assignableProjectMembers.length === 0 ? "Add project members first" : "Select project member"} /></SelectTrigger><SelectContent>{assignableProjectMembers.map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.name}</SelectItem>)}</SelectContent></Select>{assignableProjectMembers.length === 0 && <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>}</div>
+            )}
+            {!taskDelegate && (
+              <MemberSelector
+                employees={assignableProjectMembers.filter((employee) => employee.id !== taskAssigneeId)}
+                selectedIds={taskCollaboratorIds}
+                onToggle={toggleTaskCollaborator}
+                label="Collaborators"
+              />
+            )}
             <div className="grid gap-4 md:grid-cols-3"><div className="space-y-2"><Label>Priority</Label><Select value={taskPriority} onValueChange={(value) => setTaskPriority(value as TaskPriority)}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(priorityClasses).map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Status</Label><Select value={taskStatus} onValueChange={(value) => setTaskStatus(value as TaskStatus)}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(taskStatuses).map((status) => <SelectItem key={status} value={status}>{taskStatuses[status as TaskStatus]}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Due Date</Label><Input type="date" value={taskDueDate} onChange={(event) => setTaskDueDate(event.target.value)} className="bg-background" /></div></div>
           </div>
-          <DialogFooter className="flex items-center justify-between gap-3"><div>{editingTask && canManageProjects && <Button type="button" variant="destructive" onClick={() => void handleTaskDelete(editingTask)} loading={taskDeleting}><Trash2 className="mr-2 size-4" />Delete</Button>}</div><div className="flex flex-wrap items-center gap-2 sm:gap-3 xl:max-w-[420px] xl:justify-end"><Button type="button" variant="outline" onClick={() => { setTaskDialogOpen(false); resetTaskForm() }} disabled={taskSaving || taskDeleting}>Cancel</Button><Button type="button" onClick={handleTaskSave} loading={taskSaving}>{editingTask ? "Update Task" : "Create Task"}</Button></div></DialogFooter>
+          <DialogFooter className="flex items-center justify-between gap-3"><div>{editingTask && canManageProjects && <Button type="button" variant="destructive" onClick={() => void handleTaskDelete(editingTask)} loading={taskDeleting}><Trash2 className="mr-2 size-4" />Delete</Button>}</div><div className="flex flex-wrap items-center gap-2 sm:gap-3 xl:max-w-[420px] xl:justify-end"><Button type="button" variant="outline" onClick={() => { setTaskDialogOpen(false); resetTaskForm() }} disabled={taskSaving || taskDeleting}>Cancel</Button><Button type="button" onClick={handleTaskSave} loading={taskSaving}>{editingTask ? "Update Task" : taskDelegate ? "Delegate Task" : "Create Task"}</Button></div></DialogFooter>
         </DialogContent>
       </Dialog>
 

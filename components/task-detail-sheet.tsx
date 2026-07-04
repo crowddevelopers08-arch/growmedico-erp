@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import {
   CalendarIcon, Clock, CircleDot, CheckCircle2,
-  AlertCircle, MessageSquare, User, Pencil, Trash2, Check, X,
-  Play, Pause, FileText, Download,
+  AlertCircle, MessageSquare, Pencil, Trash2, Check, X,
+  Play, Pause, FileText, Download, Handshake,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -230,11 +230,18 @@ export function TaskDetailSheet({
   const projectName = task.clientName && task.projectName
     ? `${task.clientName} - ${task.projectName}`
     : task.projectName ?? null
-  const assigner = mentionUsers.find((user) =>
+  const creator = mentionUsers.find((user) =>
     user.userId === task.assignedById || user.employeeId === task.assignedById
   )
-  const assignerName = task.assignedByName ?? assigner?.name
-  const assignerAvatar = task.assignedByAvatar ?? assigner?.avatar
+  const createdByName = task.assignedByName ?? creator?.name
+  const createdByAvatar = task.assignedByAvatar ?? creator?.avatar
+  // Flow 1: once the manager has handed a delegated task down to an employee,
+  // the manager is the assigner of the current assignee. Until then, the
+  // original creator is still the last person to have assigned it.
+  const handedDown = Boolean(task.managerId && task.managerId !== task.assignedToId)
+  const awaitingDelegation = Boolean(task.managerId && task.managerId === task.assignedToId)
+  const assignerName = handedDown ? task.managerName : createdByName
+  const assignerAvatar = handedDown ? task.managerAvatar : createdByAvatar
   const collaboratorEmployees = (task.collaborators ?? [])
     .map((employeeId) => employees?.find((employee) => employee.id === employeeId))
     .filter((employee): employee is Employee => Boolean(employee))
@@ -279,10 +286,22 @@ export function TaskDetailSheet({
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <PersonCard label="Created By" name={assignerName} avatar={assignerAvatar} />
+              <PersonCard label="Created By" name={createdByName} avatar={createdByAvatar} />
               <PersonCard label="Assigner" name={assignerName} avatar={assignerAvatar} />
               <PersonCard label="Assignee" name={employeeName ?? "Unassigned"} avatar={employeeAvatar} />
             </div>
+
+            {awaitingDelegation && isAdmin && onEditTask && (
+              <div className="mt-3 flex flex-col gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 text-sm text-warning">
+                  <Handshake className="size-4 shrink-0" />
+                  <span>Delegated to {employeeName ?? "the manager"} — assign it to a team member to continue.</span>
+                </div>
+                <Button size="sm" className="shrink-0 gap-1.5" onClick={() => onEditTask(task)}>
+                  <Handshake className="size-3.5" />Assign to member
+                </Button>
+              </div>
+            )}
 
             {collaboratorEmployees.length > 0 && (
               <div className="mt-3">

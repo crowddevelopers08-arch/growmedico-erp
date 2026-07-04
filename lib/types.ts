@@ -82,6 +82,10 @@ export interface Task {
   assignedById: string
   assignedByName?: string | null
   assignedByAvatar?: string | null
+  managerId?: string | null
+  managerName?: string | null
+  managerAvatar?: string | null
+  managerInitials?: string | null
   priority: TaskPriority
   status: TaskStatus
   stage?: string | null

@@ -73,6 +73,7 @@ export const taskCreateSchema = z.object({
   description: z.string().trim().max(2000, "Description is too long").optional().nullable(),
   projectId: z.string().trim().min(1, "Select a client project"),
   assignedToId: z.string().trim().min(1, "Select who this task is assigned to"),
+  managerId: z.string().trim().min(1).optional().nullable(),
   collaborators: z.array(z.string()).optional(),
   priority: z.enum(taskPriorities).optional(),
   status: z.enum(taskStatuses).optional(),

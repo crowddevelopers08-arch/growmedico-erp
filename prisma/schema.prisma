@@ -151,6 +151,10 @@ model Task {
   assignedById String
   assignedByName   String?
   assignedByAvatar String?
+  // Flow 1 (Admin -> Manager -> Employee): the delegating manager (Employee id).
+  // Null for direct tasks. Survives the handoff so the manager stays accountable
+  // after reassigning the task down to an employee.
+  managerId    String?
   priority     String         @default("medium")
   status       String         @default("pending")
   stage        String         @default("Unstaged Tasks")

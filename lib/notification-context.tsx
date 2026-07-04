@@ -76,7 +76,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   }, [])
 
-  // Initial load + refetch when the tab regains focus (SSE fallback safety net).
+  // Initial load, refetch on focus, plus a slow poll. The poll is the fallback
+  // for serverless hosts (e.g. Vercel) where cross-invocation SSE can't reach an
+  // open stream — it keeps the bell/badge current even when SSE never pushes.
   useEffect(() => {
     if (status !== "authenticated") {
       setNotifications([])
@@ -87,7 +89,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     refresh()
     const onFocus = () => refresh()
     window.addEventListener("focus", onFocus)
-    return () => window.removeEventListener("focus", onFocus)
+    const pollId = setInterval(refresh, 30000)
+    return () => {
+      window.removeEventListener("focus", onFocus)
+      clearInterval(pollId)
+    }
   }, [status, refresh])
 
   // Live stream.
