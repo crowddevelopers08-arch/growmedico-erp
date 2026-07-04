@@ -35,7 +35,7 @@ import { employeeFormSchema } from "@/lib/validations"
 import type { Employee, Department, EmployeeStatus, AccountRole } from "@/lib/types"
 import type { z } from "zod"
 
-const departments: Department[] = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO"]
+const departments: Department[] = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO", "Founder", "Co-Founder", "Graphic Designer", "HR", "Senior Media Buyer", "Performance Marketer", "Social Media Manager"]
 const statusOptions: { value: EmployeeStatus; label: string }[] = [
   { value: "present", label: "Onsite" },
   { value: "remote", label: "Work From Home" },

@@ -5,7 +5,7 @@ export type LeaveType = "Casual Leave" | "Privilege Leave" | "Sick Leave" | "Wor
 
 export type LeaveStatus = "pending" | "approved" | "rejected"
 
-export type Department = "Web Developer" | "Media Buyer" | "Video Editors" | "CSM" | "Operations Manager" | "Content Writer" | "SEO"
+export type Department = "Web Developer" | "Media Buyer" | "Video Editors" | "CSM" | "Operations Manager" | "Content Writer" | "SEO" | "Founder" | "Co-Founder" | "Graphic Designer" | "HR" | "Senior Media Buyer" | "Performance Marketer" | "Social Media Manager"
 
 export interface Employee {
   id: string

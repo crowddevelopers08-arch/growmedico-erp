@@ -41,7 +41,7 @@ import { EmployeeDialog } from "@/components/employee-dialog"
 import { EmployeeDetails } from "@/components/employee-details"
 import type { Employee, Department } from "@/lib/types"
 
-const departments: Department[] = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO"]
+const departments: Department[] = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO", "Founder", "Co-Founder", "Graphic Designer", "HR", "Senior Media Buyer", "Performance Marketer", "Social Media Manager"]
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -345,7 +345,7 @@ function EmployeesPageContent() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{employee.department}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{employee.role}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{employee.department}</TableCell>
                     <TableCell>{getStatusBadge(employee.status)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(employee.joinDate)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>

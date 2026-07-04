@@ -290,9 +290,9 @@ export function AppSidebar() {
                   </Avatar>
                   <div className="flex flex-col items-start text-left group-data-[collapsible=icon]:hidden">
                     <span className="text-sm font-medium text-white">{userName}</span>
-                    <span className="text-xs text-muted-foreground">{roleLabel}</span>
+                    <span className="text-xs text-white/70">{roleLabel}</span>
                   </div>
-                  <ChevronDown className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+                  <ChevronDown className="ml-auto size-4 text-white/70 group-data-[collapsible=icon]:hidden" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="start" className="w-56">

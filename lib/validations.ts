@@ -3,7 +3,7 @@ import { z } from "zod"
 const phoneRegex = /^[\d\s()+-]{7,20}$/
 const channelSlugRegex = /^[a-z0-9-]{1,50}$/
 
-const departments = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO"] as const
+const departments = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO", "Founder", "Co-Founder", "Graphic Designer", "HR", "Senior Media Buyer", "Performance Marketer", "Social Media Manager"] as const
 const accountRoles = ["ADMIN", "MANAGER", "EMPLOYEE"] as const
 const employeeStatuses = ["present", "absent", "onLeave", "remote", "late"] as const
 const leaveTypes = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"] as const
