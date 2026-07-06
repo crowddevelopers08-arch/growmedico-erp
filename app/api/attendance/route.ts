@@ -17,6 +17,31 @@ function to12h(time: string) {
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`
 }
 
+// Attendance is recorded in India Standard Time regardless of where the server
+// runs. `new Date().getHours()` uses the server's zone (UTC in production), which
+// stored afternoon IST punches as morning UTC — so derive the date and clock
+// time straight from the Asia/Kolkata wall clock.
+function nowIST() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date())
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? "00"
+  const hour = pick("hour") === "24" ? "00" : pick("hour")
+  const minute = pick("minute")
+  return {
+    date: `${pick("year")}-${pick("month")}-${pick("day")}`,
+    hours: Number(hour),
+    minutes: Number(minute),
+    time: `${hour}:${minute}`,
+  }
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -43,11 +68,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { action, employeeId, checkInPhoto, checkOutPhoto } = body
 
-  const today = new Date().toISOString().split("T")[0]
-  const now = new Date()
-  const hours = now.getHours()
-  const minutes = now.getMinutes()
-  const time = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+  const { date: today, hours, minutes, time } = nowIST()
 
   const employee = await prisma.employee.findUnique({ where: { id: employeeId } })
   if (!employee) return NextResponse.json({ error: "Employee not found" }, { status: 404 })
