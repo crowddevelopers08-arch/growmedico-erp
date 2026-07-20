@@ -98,8 +98,15 @@ export function AppSidebar() {
   const isAdmin = session?.user?.role === "ADMIN"
   const roleLabel = isAdmin ? "Admin" : session?.user?.role === "MANAGER" ? "Manager" : "Employee"
   const navItems = isAdmin ? adminNavItems : employeeNavItems
-  const userName = session?.user?.name ?? "User"
   const userEmail = session?.user?.email ?? ""
+  // Employees carry a real name; name-less logins (e.g. a bootstrap admin with
+  // no employee profile) fall back to their email — turn that into a readable
+  // name from the local part rather than showing the full address.
+  const rawName = session?.user?.name ?? ""
+  const userName =
+    rawName && rawName !== userEmail
+      ? rawName
+      : (userEmail.split("@")[0] || "User").replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
   const userInitials = session?.user?.initials ?? userName.slice(0, 2).toUpperCase()
   const userAvatar = session?.user?.image ?? undefined
 
