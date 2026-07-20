@@ -24,6 +24,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { TimeInput12h } from "@/components/ui/time-input-12h"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Table,
@@ -538,12 +539,7 @@ function AttendancePageContent() {
               <div className="grid gap-4 py-2">
                 <div className="space-y-1.5">
                   <Label>Check In Time</Label>
-                  <input
-                    type="time"
-                    value={editCheckIn}
-                    onChange={(e) => setEditCheckIn(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
+                  <TimeInput12h value={editCheckIn} onChange={setEditCheckIn} />
                   {editCheckIn && (() => {
                     const [h, m] = editCheckIn.split(":").map(Number)
                     const late = h > 10 || (h === 10 && m > 30)
@@ -554,12 +550,7 @@ function AttendancePageContent() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Check Out Time <span className="text-muted-foreground text-xs">(optional)</span></Label>
-                  <input
-                    type="time"
-                    value={editCheckOut}
-                    onChange={(e) => setEditCheckOut(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
+                  <TimeInput12h value={editCheckOut} onChange={setEditCheckOut} />
                 </div>
                 {editCheckIn && editCheckOut && (() => {
                   const [ciH, ciM] = editCheckIn.split(":").map(Number)
