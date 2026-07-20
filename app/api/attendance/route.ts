@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getAdminUserIds, getUserIdForEmployee, notify, notifyMany } from "@/lib/notifications"
+import { uploadMedia } from "@/lib/cloudinary"
 
 // Office hours: 10:00 AM – 7:00 PM (9-hour work day)
 // Late threshold: check-in after 10:30 AM
@@ -77,15 +78,18 @@ export async function POST(req: NextRequest) {
     const isLate = hours > LATE_HOUR || (hours === LATE_HOUR && minutes > LATE_MINUTE)
     const checkInStatus = isLate ? "late" : "present"
 
+    // Store the punch photo on Cloudinary; persist only the hosted URL.
+    const checkInPhotoUrl = (await uploadMedia(checkInPhoto, "attendance", { image: true })) ?? null
+
     const record = await prisma.attendance.upsert({
       where: { employeeId_date: { employeeId, date: today } },
-      update: { checkIn: time, status: checkInStatus, checkInPhoto: checkInPhoto ?? null },
+      update: { checkIn: time, status: checkInStatus, checkInPhoto: checkInPhotoUrl },
       create: {
         employeeId,
         date: today,
         checkIn: time,
         checkOut: null,
-        checkInPhoto: checkInPhoto ?? null,
+        checkInPhoto: checkInPhotoUrl,
         status: checkInStatus,
         workHours: 0,
         overtime: 0,
@@ -139,11 +143,13 @@ export async function POST(req: NextRequest) {
     const [checkOutHour, checkOutMin] = time.split(":").map(Number)
     const workHours = (checkOutHour + checkOutMin / 60) - (checkInHour + checkInMin / 60)
 
+    const checkOutPhotoUrl = (await uploadMedia(checkOutPhoto, "attendance", { image: true })) ?? null
+
     const record = await prisma.attendance.update({
       where: { employeeId_date: { employeeId, date: today } },
       data: {
         checkOut: time,
-        checkOutPhoto: checkOutPhoto ?? null,
+        checkOutPhoto: checkOutPhotoUrl,
         workHours: Math.round(workHours * 10) / 10,
         overtime: Math.max(0, Math.round((workHours - OFFICE_HOURS) * 10) / 10),
       },

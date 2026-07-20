@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { uploadMedia } from "@/lib/cloudinary"
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -17,7 +18,9 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const base64 = buffer.toString("base64")
-    const avatarUrl = `data:${file.type};base64,${base64}`
+    const dataUrl = `data:${file.type};base64,${base64}`
+    // Store on Cloudinary and keep only the hosted URL in the DB.
+    const avatarUrl = (await uploadMedia(dataUrl, "avatars", { image: true })) ?? dataUrl
 
     if (session.user.employeeId) {
       await prisma.employee.update({

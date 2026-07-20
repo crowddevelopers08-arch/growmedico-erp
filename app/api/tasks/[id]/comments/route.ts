@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { pushNotification } from "@/lib/notifications"
+import { uploadAttachments, uploadMedia } from "@/lib/cloudinary"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -46,6 +47,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     ? await prisma.employee.findUnique({ where: { id: session.user.employeeId } })
     : null
 
+  // Offload media to Cloudinary so only hosted URLs land in Postgres.
+  const [audioUrl, uploadedAttachments] = await Promise.all([
+    uploadMedia(audioContent, "tasks/audio"),
+    uploadAttachments(attachments, "tasks/attachments"),
+  ])
+
   const comment = await prisma.taskComment.create({
     data: {
       taskId,
@@ -53,8 +60,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       senderName: employee?.name ?? session.user.name ?? session.user.email ?? "Unknown",
       senderAvatar: employee?.avatar ?? null,
       content: content?.trim() ?? "",
-      audioContent: audioContent ?? null,
-      attachments: attachments ?? undefined,
+      audioContent: audioUrl ?? null,
+      attachments: uploadedAttachments ?? undefined,
       mentions: mentions ?? [],
     },
   })
