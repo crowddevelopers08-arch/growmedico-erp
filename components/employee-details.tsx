@@ -1,6 +1,6 @@
 "use client"
 
-import { X, Mail, Phone, MapPin, Calendar, DollarSign, AlertCircle, Building2, Briefcase } from "lucide-react"
+import { Mail, Phone, MapPin, Calendar, DollarSign, AlertCircle, Building2, Briefcase } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -89,9 +89,6 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
                 <div className="mt-2">{getStatusBadge(employee.status)}</div>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="size-4" />
-            </Button>
           </div>
         </SheetHeader>
 
@@ -127,18 +124,24 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
               <CardTitle className="text-sm font-medium">Employment Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 text-sm">
-                <Building2 className="size-4 text-muted-foreground" />
-                <span>{employee.department}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Briefcase className="size-4 text-muted-foreground" />
-                <span>{employee.role}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Calendar className="size-4 text-muted-foreground" />
-                <span>Joined {formatDate(employee.joinDate)}</span>
-              </div>
+              {employee.department && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Building2 className="size-4 text-muted-foreground" />
+                  <span>{employee.department}</span>
+                </div>
+              )}
+              {employee.role && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Briefcase className="size-4 text-muted-foreground" />
+                  <span>{employee.role}</span>
+                </div>
+              )}
+              {employee.joinDate && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Calendar className="size-4 text-muted-foreground" />
+                  <span>Joined {formatDate(employee.joinDate)}</span>
+                </div>
+              )}
               {canSeeSalary && (
                 <div className="flex items-center gap-3 text-sm">
                   <DollarSign className="size-4 text-muted-foreground" />

@@ -157,6 +157,22 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind v4 defaults buttons to cursor:default — restore the pointer on
+     all interactive elements. Disabled controls keep the not-allowed cursor. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  label[for],
+  summary,
+  select:not(:disabled),
+  [type="checkbox"]:not(:disabled),
+  [type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
