@@ -30,6 +30,7 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             role: user.role,
             employeeId: user.employeeId ?? undefined,
+            department: user.employee?.department ?? undefined,
             name: user.employee?.name ?? user.email,
             // avatar intentionally omitted — base64 data URLs bloat the JWT
             // and cause the cookie to split, breaking session reads
@@ -48,6 +49,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role
         token.employeeId = user.employeeId
         token.initials = user.initials
+        token.department = user.department
       }
       // Always strip the picture — it's a base64 avatar that bloats the JWT
       delete token.picture
@@ -59,6 +61,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string
         session.user.employeeId = token.employeeId as string | undefined
         session.user.initials = token.initials as string
+        session.user.department = token.department as string | undefined
       }
       return session
     },

@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { toDateStr } from "@/lib/date"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardAction, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -32,7 +33,7 @@ export function DashboardAttendanceChart() {
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today)
       date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().split("T")[0]
+      const dateStr = toDateStr(date)
       const dayName = date.toLocaleDateString("en-US", { weekday: "short" })
       
       const dayAttendance = attendance.filter((a) => a.date === dateStr)

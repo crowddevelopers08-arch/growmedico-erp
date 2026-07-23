@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { canManageDelivery } from "@/lib/permissions"
 import { projectCreateSchema, firstIssueMessage } from "@/lib/validations"
 
 const memberInclude = {
@@ -81,7 +82,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  const canManageProjects = session?.user.role === "ADMIN" || session?.user.role === "MANAGER"
+  const canManageProjects = canManageDelivery(session?.user)
   if (!session || !canManageProjects) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }

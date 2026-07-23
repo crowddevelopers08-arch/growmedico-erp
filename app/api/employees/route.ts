@@ -3,13 +3,14 @@ import { getServerSession } from "next-auth"
 import bcrypt from "bcryptjs"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { todayIST } from "@/lib/date"
 import { employeeCreateSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayIST()
 
   const [employees, todayAttendance, approvedLeavesToday] = await Promise.all([
     prisma.employee.findMany({

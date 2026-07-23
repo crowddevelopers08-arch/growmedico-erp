@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useEffect, useMemo } from "react"
+import { useSession } from "next-auth/react"
+import { useForm, type FieldErrors } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { format, parseISO } from "date-fns"
 import { toast } from "sonner"
@@ -15,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -34,9 +36,10 @@ import { useHR } from "@/lib/hr-context"
 import type { LeaveType } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { leaveRequestSchema } from "@/lib/validations"
+import { permissionMonth, permissionNotice, permissionPenalty } from "@/lib/leave"
 import type { z } from "zod"
 
-const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"]
+const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home", "Permission"]
 
 type LeaveFormValues = z.infer<typeof leaveRequestSchema>
 
@@ -55,7 +58,13 @@ interface LeaveRequestDialogProps {
 }
 
 export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogProps) {
-  const { employees, addLeaveRequest } = useHR()
+  const { employees, addLeaveRequest, leaveRequests } = useHR()
+  const { data: session } = useSession()
+  const currentEmployeeId = session?.user?.employeeId
+
+  // A leave request is always filed for yourself, so the picker only ever
+  // offers the logged-in employee.
+  const currentEmployee = employees.find((emp) => emp.id === currentEmployeeId)
 
   const form = useForm<LeaveFormValues>({
     resolver: zodResolver(leaveRequestSchema),
@@ -63,11 +72,24 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
   })
 
   useEffect(() => {
-    if (!open) form.reset(emptyValues)
-  }, [open, form])
+    // Pre-select the logged-in employee each time the dialog opens.
+    form.reset(open ? { ...emptyValues, employeeId: currentEmployeeId ?? "" } : emptyValues)
+  }, [open, currentEmployeeId, form])
 
   const startDate = form.watch("startDate")
   const endDate = form.watch("endDate")
+  const type = form.watch("type")
+  const isPermission = type === "Permission"
+
+  // A permission covers a single day, so its End Date input is hidden. Mirror
+  // the picked date into endDate anyway — the schema still requires it, and an
+  // empty value would fail validation against a field that isn't rendered,
+  // silently blocking submit.
+  useEffect(() => {
+    if (isPermission && startDate && endDate !== startDate) {
+      form.setValue("endDate", startDate, { shouldValidate: true })
+    }
+  }, [isPermission, startDate, endDate, form])
 
   const calculateDays = (start: string, end: string) => {
     if (!start || !end) return 0
@@ -77,9 +99,36 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
 
   const days = calculateDays(startDate, endDate)
 
+  // Preview which permission of the month this would be. The server recomputes
+  // this authoritatively on submit — this is only to warn the employee first.
+  const permissionCount = useMemo(() => {
+    if (!isPermission || !startDate || !currentEmployeeId) return 0
+    const month = permissionMonth(startDate)
+    const taken = leaveRequests.filter(
+      (r) =>
+        r.employeeId === currentEmployeeId &&
+        r.type === "Permission" &&
+        r.status !== "rejected" &&
+        permissionMonth(r.startDate) === month,
+    ).length
+    return taken + 1
+  }, [isPermission, startDate, currentEmployeeId, leaveRequests])
+
+  // Surface validation failures. Without this, an error on a field that isn't
+  // currently rendered makes the submit button look broken.
+  const onInvalid = (errors: FieldErrors<LeaveFormValues>) => {
+    const first = Object.values(errors).find((error) => error?.message)
+    toast.error(String(first?.message ?? "Please check the form for errors"))
+  }
+
   const onSubmit = async (values: LeaveFormValues) => {
     try {
-      await addLeaveRequest({ ...values, days: calculateDays(values.startDate, values.endDate) })
+      // A permission covers a single date and is measured in hours, so it
+      // carries days: 0 and mirrors startDate into endDate.
+      const payload = isPermission
+        ? { ...values, endDate: values.startDate, days: 0 }
+        : { ...values, hours: undefined, days: calculateDays(values.startDate, values.endDate) }
+      await addLeaveRequest(payload)
       onOpenChange(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit leave request")
@@ -104,7 +153,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
             <div className="grid gap-4 py-4">
               <FormField
                 control={form.control}
@@ -112,18 +161,18 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Employee</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select value={field.value} onValueChange={field.onChange} disabled>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select employee" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {employees.map((emp) => (
-                          <SelectItem key={emp.id} value={emp.id}>
-                            {emp.name} - {emp.department}
+                        {currentEmployee && (
+                          <SelectItem value={currentEmployee.id}>
+                            {currentEmployee.name} - {currentEmployee.department}
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -162,7 +211,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
                   name="startDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Start Date</FormLabel>
+                      <FormLabel>{isPermission ? "Date" : "Start Date"}</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -190,46 +239,91 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="endDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>End Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
-                            >
-                              <CalendarIcon className="mr-2 size-4" />
-                              {field.value ? formatDate(field.value) : "Pick date"}
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value ? parseISO(field.value) : undefined}
-                            onSelect={(date) => date && field.onChange(format(date, "yyyy-MM-dd"))}
-                            disabled={(date) => (startDate ? date < parseISO(startDate) : false)}
-                            initialFocus
+                {isPermission ? (
+                  <FormField
+                    control={form.control}
+                    name="hours"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Hours</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="2"
+                            name={field.name}
+                            ref={field.ref}
+                            onBlur={field.onBlur}
+                            value={field.value ?? ""}
+                            onChange={(e) => {
+                              // Digits and a single decimal point only.
+                              const clean = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1")
+                              field.onChange(clean === "" ? undefined : Number(clean))
+                            }}
                           />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>End Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                              >
+                                <CalendarIcon className="mr-2 size-4" />
+                                {field.value ? formatDate(field.value) : "Pick date"}
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value ? parseISO(field.value) : undefined}
+                              onSelect={(date) => date && field.onChange(format(date, "yyyy-MM-dd"))}
+                              disabled={(date) => (startDate ? date < parseISO(startDate) : false)}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
 
-              {startDate && endDate && (
-                <p className="text-sm text-muted-foreground">
-                  Duration: {days} day{days > 1 ? "s" : ""}
-                </p>
-              )}
+              {isPermission
+                ? permissionCount > 0 && (
+                    <p
+                      className={cn(
+                        "text-sm",
+                        permissionPenalty(permissionCount) === "full_day"
+                          ? "text-destructive"
+                          : permissionPenalty(permissionCount) === "half_day"
+                          ? "text-warning"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {permissionNotice(permissionCount)}
+                    </p>
+                  )
+                : startDate &&
+                  endDate && (
+                    <p className="text-sm text-muted-foreground">
+                      Duration: {days} day{days > 1 ? "s" : ""}
+                    </p>
+                  )}
 
               <FormField
                 control={form.control}

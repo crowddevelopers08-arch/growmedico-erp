@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
+import { todayIST } from "@/lib/date"
 import type { Employee, Attendance, LeaveRequest, SalaryRecord, Activity, LeaveStatus } from "./types"
 
 interface HRContextType {
@@ -225,7 +226,7 @@ export function HRProvider({ children }: { children: ReactNode }) {
   }, [salaryRecords])
 
   const getStats = useCallback(() => {
-    const today = new Date().toISOString().split("T")[0]
+    const today = todayIST()
     const todayAttendance = attendance.filter((a) => a.date === today)
 
     return {

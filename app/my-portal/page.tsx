@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useRef } from "react"
+import { toDateStr, todayIST } from "@/lib/date"
 import {
   Clock,
   CalendarDays,
@@ -108,7 +109,7 @@ function MyPortalContent() {
   const currentEmployee = employees.find(e => e.id === CURRENT_EMPLOYEE_ID)
   
   // Get today's attendance
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayIST()
   const todayAttendance = attendance.find(
     a => a.employeeId === CURRENT_EMPLOYEE_ID && a.date === today
   )
@@ -200,8 +201,8 @@ function MyPortalContent() {
     const parsed = leaveRequestSchema.safeParse({
       employeeId: CURRENT_EMPLOYEE_ID,
       type: leaveType,
-      startDate: startDate ? startDate.toISOString().split("T")[0] : "",
-      endDate: endDate ? endDate.toISOString().split("T")[0] : "",
+      startDate: startDate ? toDateStr(startDate) : "",
+      endDate: endDate ? toDateStr(endDate) : "",
       days: calculateDays(),
       reason,
     })

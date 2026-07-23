@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { todayIST } from "@/lib/date"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { Eye, EyeOff, CalendarIcon } from "lucide-react"
@@ -54,9 +55,10 @@ const emptyValues: EmployeeFormValues = {
   status: "present",
   salary: 0,
   address: "",
+  emergencyContactName: "",
   emergencyContact: "",
   dateOfBirth: "",
-  joinDate: new Date().toISOString().split("T")[0],
+  joinDate: todayIST(),
   password: "",
 }
 
@@ -92,6 +94,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
         status: employee.status,
         salary: employee.salary,
         address: employee.address,
+        emergencyContactName: employee.emergencyContactName ?? "",
         emergencyContact: employee.emergencyContact,
         dateOfBirth: employee.dateOfBirth,
         joinDate: employee.joinDate,
@@ -310,11 +313,21 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
                     <FormItem>
                       <FormLabel>Annual Salary</FormLabel>
                       <FormControl>
+                        {/* Digits only — a text input with manual filtering, since
+                            type="number" still accepts "e", "+" and "-". 0 renders
+                            as empty so the field starts blank instead of showing 0. */}
                         <Input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           placeholder="500000"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
+                          name={field.name}
+                          ref={field.ref}
+                          onBlur={field.onBlur}
+                          value={field.value ? String(field.value) : ""}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, "")
+                            field.onChange(digits === "" ? 0 : Number(digits))
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -391,10 +404,23 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
                 />
                 <FormField
                   control={form.control}
+                  name="emergencyContactName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Emergency Contact Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Contact person's name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="emergencyContact"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Emergency Contact</FormLabel>
+                      <FormLabel>Emergency Contact Number</FormLabel>
                       <FormControl>
                         <Input placeholder="+91 98765 43210" {...field} />
                       </FormControl>

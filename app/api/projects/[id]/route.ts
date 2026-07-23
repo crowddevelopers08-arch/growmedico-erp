@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { canManageDelivery } from "@/lib/permissions"
 import { getUserIdsForEmployees, notifyMany } from "@/lib/notifications"
 
 const memberInclude = {
@@ -58,7 +59,7 @@ function normalizeStages(value: unknown) {
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  const canManageProjects = session?.user.role === "ADMIN" || session?.user.role === "MANAGER"
+  const canManageProjects = canManageDelivery(session?.user)
   if (!session || !canManageProjects) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
@@ -129,7 +130,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  const canManageProjects = session?.user.role === "ADMIN" || session?.user.role === "MANAGER"
+  const canManageProjects = canManageDelivery(session?.user)
   if (!session || !canManageProjects) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }

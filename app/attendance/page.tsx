@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { to12h, toDateStr, todayIST } from "@/lib/date"
 import { CalendarIcon, Clock, LogIn, LogOut, Search, ChevronLeft, ChevronRight, Users, ImageOff, Download, BarChart2, Pencil } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,16 +39,7 @@ import { useHR } from "@/lib/hr-context"
 import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 
-// Convert 24h "HH:MM" to 12h "h:MM AM/PM"
-function to12h(time: string | null | undefined): string | null {
-  if (!time) return null
-  const [h, m] = time.split(":").map(Number)
-  const ampm = h >= 12 ? "PM" : "AM"
-  const hour = h % 12 || 12
-  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`
-}
-
-// Convert 12h "h:MM AM/PM" to 24h "HH:MM" for <input type="time">
+// Convert 12h "h:MM AM/PM" to 24h "HH:MM" for the time picker
 function to24h(time: string | null | undefined): string {
   if (!time) return ""
   // Already 24h format
@@ -159,8 +151,8 @@ function AttendancePageContent() {
     [employees, monthlyReportEmployeeId]
   )
 
-  const dateStr = selectedDate.toISOString().split("T")[0]
-  const todayStr = new Date().toISOString().split("T")[0]
+  const dateStr = toDateStr(selectedDate)
+  const todayStr = todayIST()
   const isToday = dateStr === todayStr
 
   const attendanceForDate = useMemo(() => {
@@ -685,7 +677,8 @@ function AttendancePageContent() {
                         {monthlyReportRecords.map(({ date, record }) => {
                           const d = new Date(date + "T00:00:00")
                           const dayName = d.toLocaleDateString("en-US", { weekday: "short" })
-                          const isWeekend = d.getDay() === 0 || d.getDay() === 6
+                          // Saturday is a working day here — only Sunday is off.
+                          const isWeekend = d.getDay() === 0
                           return (
                             <TableRow key={date} className={cn("group", isWeekend && "bg-muted/30")}>
                               <TableCell className="pl-6 text-sm font-mono">{date}</TableCell>

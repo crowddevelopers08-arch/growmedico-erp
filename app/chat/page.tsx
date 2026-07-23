@@ -22,6 +22,16 @@ import type { Channel, Message } from "@/lib/types"
 
 const IST = "Asia/Kolkata"
 
+/**
+ * Sort key for "most recently messaged first". Chats with no messages yet
+ * return 0 so they sink below every conversation that has one.
+ */
+function recencyRank(lastMessageAt?: string | null) {
+  if (!lastMessageAt) return 0
+  const time = new Date(lastMessageAt).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-IN", {
     hour: "2-digit", minute: "2-digit", hour12: true, timeZone: IST,
@@ -265,21 +275,32 @@ function ChatPageContent() {
 
   const filteredGroupDms = useMemo(() => {
     const query = chatQuery.trim().toLowerCase()
-    return groupDmChannels.filter((ch) => {
-      if (chatTab === "unread" && (ch.unreadCount ?? 0) <= 0) return false
-      if (!query) return true
-      return (ch.groupTitle ?? ch.name).toLowerCase().includes(query)
-    })
+    return groupDmChannels
+      .filter((ch) => {
+        if (chatTab === "unread" && (ch.unreadCount ?? 0) <= 0) return false
+        if (!query) return true
+        return (ch.groupTitle ?? ch.name).toLowerCase().includes(query)
+      })
+      .sort((a, b) => recencyRank(b.lastMessageAt) - recencyRank(a.lastMessageAt))
   }, [chatQuery, chatTab, groupDmChannels])
 
   const filteredContacts = useMemo(() => {
     const query = chatQuery.trim().toLowerCase()
-    return directContacts.filter((user) => {
-      const directChannel = directChannelByPeerId.get(user.userId)
-      if (chatTab === "unread" && (directChannel?.unreadCount ?? 0) <= 0) return false
-      if (!query) return true
-      return user.name.toLowerCase().includes(query)
-    })
+    return directContacts
+      .filter((user) => {
+        const directChannel = directChannelByPeerId.get(user.userId)
+        if (chatTab === "unread" && (directChannel?.unreadCount ?? 0) <= 0) return false
+        if (!query) return true
+        return user.name.toLowerCase().includes(query)
+      })
+      .sort((a, b) => {
+        // Most recently messaged first; people never messaged fall to the
+        // bottom, ordered by name so the tail stays stable.
+        const aAt = recencyRank(directChannelByPeerId.get(a.userId)?.lastMessageAt)
+        const bAt = recencyRank(directChannelByPeerId.get(b.userId)?.lastMessageAt)
+        if (aAt !== bAt) return bAt - aAt
+        return a.name.localeCompare(b.name)
+      })
   }, [chatQuery, chatTab, directChannelByPeerId, directContacts])
 
   const openDirectChat = async (user: MentionUser) => {
@@ -482,7 +503,7 @@ function ChatPageContent() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <MessageSquare className="size-4 text-primary" />
-              <span className="text-base font-bold text-foreground">Private Chats</span>
+              <span className="text-base font-bold text-foreground">Chat</span>
             </div>
             <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => { setCreateGroupOpen(true); setGroupName(""); setSelectedMemberIds([]); setGroupMemberSearch("") }}>
               <UserPlus className="size-4" />

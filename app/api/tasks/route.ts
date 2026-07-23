@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { canManageDelivery } from "@/lib/permissions"
 import { getUserIdsForEmployees, pushNotification } from "@/lib/notifications"
 import { taskCreateSchema, firstIssueMessage } from "@/lib/validations"
 
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const canManageTasks = session.user.role === "ADMIN" || session.user.role === "MANAGER"
+  const canManageTasks = canManageDelivery(session.user)
 
   // Admins and managers see all tasks; employees see tasks they're assigned to or collaborating on
   const where = canManageTasks
@@ -160,7 +161,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const canManageTasks = session.user.role === "ADMIN" || session.user.role === "MANAGER"
+  const canManageTasks = canManageDelivery(session.user)
   const body = await req.json()
   const parsed = taskCreateSchema.safeParse(body)
   if (!parsed.success) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { todayIST } from "@/lib/date"
 import { getUserIdForEmployee, notify } from "@/lib/notifications"
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (action === "markPaid") {
       const record = await prisma.salaryRecord.update({
         where: { id },
-        data: { status: "paid", paidOn: new Date().toISOString().split("T")[0] },
+        data: { status: "paid", paidOn: todayIST() },
       })
 
       const employeeUserId = await getUserIdForEmployee(record.employeeId)

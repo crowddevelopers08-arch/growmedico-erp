@@ -39,10 +39,13 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { useSession } from "next-auth/react"
 import { useHR } from "@/lib/hr-context"
+import { canApproveLeave } from "@/lib/permissions"
 import { LeaveRequestDialog } from "@/components/leave-request-dialog"
 import type { LeaveRequest, LeaveStatus, LeaveType } from "@/lib/types"
+import { penaltyLabel } from "@/lib/leave"
+import { cn } from "@/lib/utils"
 
-const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"]
+const leaveTypes: LeaveType[] = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home", "Permission"]
 
 const getStatusBadge = (status: LeaveStatus) => {
   switch (status) {
@@ -67,6 +70,8 @@ const getLeaveTypeBadge = (type: LeaveType) => {
       return <Badge variant="secondary" className="bg-destructive/10 text-destructive border-0">Sick Leave</Badge>
     case "Work From Home":
       return <Badge variant="secondary" className="bg-chart-2/10 text-chart-2 border-0">Work From Home</Badge>
+    case "Permission":
+      return <Badge variant="secondary" className="bg-chart-4/10 text-chart-4 border-0">Permission</Badge>
     default:
       return <Badge variant="secondary">{type}</Badge>
   }
@@ -75,7 +80,8 @@ const getLeaveTypeBadge = (type: LeaveType) => {
 function LeavesPageContent() {
   const { leaveRequests, employees, updateLeaveStatus, getEmployee } = useHR()
   const { data: session } = useSession()
-  const isAdmin = session?.user?.role === "ADMIN"
+  // Admins and the HR department can review and decide on every request.
+  const canApprove = canApproveLeave(session?.user)
   const currentEmployeeId = session?.user?.employeeId
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTypes, setSelectedTypes] = useState<LeaveType[]>([])
@@ -86,9 +92,9 @@ function LeavesPageContent() {
   const [rejectionReason, setRejectionReason] = useState("")
 
   const visibleRequests = useMemo(() => {
-    if (isAdmin) return leaveRequests
+    if (canApprove) return leaveRequests
     return leaveRequests.filter((r) => r.employeeId === currentEmployeeId)
-  }, [leaveRequests, isAdmin, currentEmployeeId])
+  }, [leaveRequests, canApprove, currentEmployeeId])
 
   const filteredRequests = useMemo(() => {
     let result = [...visibleRequests]
@@ -163,7 +169,7 @@ function LeavesPageContent() {
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Leave Requests</h1>
           <p className="text-sm text-muted-foreground">
-            {isAdmin ? "Manage and approve employee leave requests." : "View and manage your leave requests. Casual: 6, Privilege: 6, Sick: 12, Work From Home: 6 per quarter."}
+            {canApprove ? "Manage and approve employee leave requests." : "View and manage your leave requests. Casual: 6, Privilege: 6, Sick: 12, Work From Home: 6 per quarter."}
           </p>
         </div>
         <Button onClick={() => setDialogOpen(true)} className="sm:shrink-0">
@@ -311,13 +317,13 @@ function LeavesPageContent() {
                 <TableHead>Reason</TableHead>
                 <TableHead>Applied On</TableHead>
                 <TableHead>Status</TableHead>
-                {isAdmin && <TableHead className="w-24">Actions</TableHead>}
+                {canApprove && <TableHead className="w-24">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRequests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 8 : 7} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={canApprove ? 8 : 7} className="h-24 text-center text-muted-foreground">
                     No leave requests found.
                   </TableCell>
                 </TableRow>
@@ -344,9 +350,35 @@ function LeavesPageContent() {
                       </TableCell>
                       <TableCell>{getLeaveTypeBadge(request.type)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                        {request.type === "Permission"
+                          ? formatDate(request.startDate)
+                          : `${formatDate(request.startDate)} - ${formatDate(request.endDate)}`}
                       </TableCell>
-                      <TableCell className="text-sm">{request.days}</TableCell>
+                      <TableCell className="text-sm">
+                        {request.type === "Permission" ? (
+                          <div className="flex items-center gap-1.5">
+                            <span>{request.hours}h</span>
+                            {request.permissionIndex && (
+                              <span className="text-xs text-muted-foreground">#{request.permissionIndex}</span>
+                            )}
+                            {penaltyLabel(request.penalty) && (
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  "border-0 text-xs",
+                                  request.penalty === "full_day"
+                                    ? "bg-destructive/10 text-destructive"
+                                    : "bg-warning/10 text-warning",
+                                )}
+                              >
+                                {penaltyLabel(request.penalty)}
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          request.days
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-48 truncate">
                         {request.reason}
                       </TableCell>
@@ -354,7 +386,7 @@ function LeavesPageContent() {
                         {formatDate(request.appliedOn)}
                       </TableCell>
                       <TableCell>{getStatusBadge(request.status)}</TableCell>
-                      {isAdmin && (
+                      {canApprove && (
                         <TableCell>
                           {request.status === "pending" && (
                             <div className="flex items-center gap-1">

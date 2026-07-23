@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { todayIST } from "@/lib/date"
+import { penaltyLabel, permissionMonth, permissionPenalty } from "@/lib/leave"
 import { getAdminUserIds, notifyMany } from "@/lib/notifications"
 import { leaveRequestSchema, firstIssueMessage } from "@/lib/validations"
 
@@ -36,19 +38,45 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
-    const today = new Date().toISOString().split("T")[0]
+    const today = todayIST()
+
+    // Permissions are counted per employee per calendar month. The count and
+    // resulting deduction are decided here rather than on the client so they
+    // can't be tampered with. Rejected requests don't consume an allowance.
+    let permissionIndex: number | undefined
+    let penalty: string | undefined
+    if (data.type === "Permission") {
+      const taken = await prisma.leaveRequest.count({
+        where: {
+          employeeId: data.employeeId,
+          type: "Permission",
+          status: { not: "rejected" },
+          startDate: { startsWith: permissionMonth(data.startDate) },
+        },
+      })
+      permissionIndex = taken + 1
+      penalty = permissionPenalty(permissionIndex)
+    }
 
     const request = await prisma.leaveRequest.create({
-      data: { ...data, status: "pending", appliedOn: today },
+      data: { ...data, status: "pending", appliedOn: today, permissionIndex, penalty },
     })
 
     const employee = await prisma.employee.findUnique({ where: { id: data.employeeId } })
     if (employee) {
+      // Permissions read as hours ("2h permission (#5 this month — Half Day)"),
+      // everything else as whole days.
+      const deduction = penaltyLabel(penalty)
+      const summary =
+        data.type === "Permission"
+          ? `${data.hours}h permission (#${permissionIndex} this month${deduction ? ` — ${deduction}` : ""})`
+          : `${data.days} day${data.days > 1 ? "s" : ""} ${data.type.toLowerCase()}`
+
       await prisma.activity.create({
         data: {
           type: "leave",
-          action: "Leave Request",
-          description: `${employee.name} requested ${data.days} day${data.days > 1 ? "s" : ""} ${data.type.toLowerCase()}`,
+          action: data.type === "Permission" ? "Permission Request" : "Leave Request",
+          description: `${employee.name} requested ${summary}`,
           employeeId: data.employeeId,
         },
       })
@@ -59,8 +87,8 @@ export async function POST(req: NextRequest) {
         adminIds.filter((id) => id !== session.user.id),
         {
           type: "leave_request",
-          title: "New leave request",
-          message: `${employee.name} requested ${data.days} day${data.days > 1 ? "s" : ""} ${data.type.toLowerCase()}.`,
+          title: data.type === "Permission" ? "New permission request" : "New leave request",
+          message: `${employee.name} requested ${summary}.`,
           link: "/leaves",
         },
       )

@@ -39,7 +39,9 @@ interface ChatInputProps {
 
 export function ChatInput({ placeholder = "Type a message...", users, disabled, onSend, rows = 1 }: ChatInputProps) {
   const [content, setContent] = useState("")
-  const [mentionIds, setMentionIds] = useState<string[]>([])
+  // Track the whole user, not just the id — the name is needed to convert the
+  // readable "@Name" text back into a "<@id|Name>" token on send.
+  const [mentionedUsers, setMentionedUsers] = useState<MentionUser[]>([])
   const [mentionState, setMentionState] = useState<{ start: number; query: string } | null>(null)
   const [pendingAudio, setPendingAudio] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
@@ -94,8 +96,10 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
       if (!mentionState) return
       const before = content.slice(0, mentionState.start)
       const after = content.slice(mentionState.start + 1 + mentionState.query.length)
-      setContent(`${before}@[${user.name}] ${after}`)
-      setMentionIds((prev) => (prev.includes(user.userId) ? prev : [...prev, user.userId]))
+      // Plain "@Name" keeps the input readable — no brackets. It is turned into
+      // the <@id|Name> token at send time so the message can render it in blue.
+      setContent(`${before}@${user.name} ${after}`)
+      setMentionedUsers((prev) => (prev.some((u) => u.userId === user.userId) ? prev : [...prev, user]))
       setMentionState(null)
       setTimeout(() => textareaRef.current?.focus(), 0)
     },
@@ -147,14 +151,27 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
     if (sending || disabled) return
     if (!content.trim() && !pendingAudio && attachments.length === 0) return
 
-    const dataToSend = {
-      content: content.trim(),
-      audioContent: pendingAudio,
-      attachments: attachments.length > 0 ? attachments : undefined,
-      mentions: mentionIds.length > 0 ? mentionIds : undefined,
+    // Turn the readable "@Name" text back into "<@id|Name>" tokens, which is
+    // what the message renderers understand. Longest names first so "@Sam"
+    // can't clobber part of "@Samuel". Only mentions still present in the text
+    // are sent, so deleting a tag also cancels its notification.
+    let outgoing = content.trim()
+    const activeMentions: string[] = []
+    for (const user of [...mentionedUsers].sort((a, b) => b.name.length - a.name.length)) {
+      const token = `@${user.name}`
+      if (!outgoing.includes(token)) continue
+      outgoing = outgoing.split(token).join(`<@${user.userId}|${user.name}>`)
+      activeMentions.push(user.userId)
     }
 
-    setContent(""); setPendingAudio(null); setAttachments([]); setMentionIds([]); setMentionState(null)
+    const dataToSend = {
+      content: outgoing,
+      audioContent: pendingAudio,
+      attachments: attachments.length > 0 ? attachments : undefined,
+      mentions: activeMentions.length > 0 ? activeMentions : undefined,
+    }
+
+    setContent(""); setPendingAudio(null); setAttachments([]); setMentionedUsers([]); setMentionState(null)
     setSending(true)
     try {
       await onSend(dataToSend)

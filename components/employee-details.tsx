@@ -1,6 +1,6 @@
 "use client"
 
-import { Mail, Phone, MapPin, Calendar, DollarSign, AlertCircle, Building2, Briefcase } from "lucide-react"
+import { Mail, Phone, MapPin, Calendar, IndianRupee, AlertCircle, Building2, Briefcase } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useHR } from "@/lib/hr-context"
+import { to12h } from "@/lib/date"
 import type { Employee } from "@/lib/types"
 
 interface EmployeeDetailsProps {
@@ -27,6 +28,8 @@ const getStatusBadge = (status: string) => {
   switch (status) {
     case "present":
       return <Badge variant="outline" className="text-success border-success/30 bg-success/10">Present</Badge>
+    case "late":
+      return <Badge variant="outline" className="text-warning border-warning/30 bg-warning/10">Late</Badge>
     case "onLeave":
       return <Badge variant="outline" className="text-warning border-warning/30 bg-warning/10">On Leave</Badge>
     case "remote":
@@ -64,9 +67,9 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
       minimumFractionDigits: 0,
     }).format(amount)
   }
@@ -113,7 +116,11 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <AlertCircle className="size-4 text-muted-foreground" />
-                <span>Emergency: {employee.emergencyContact}</span>
+                <span>
+                  Emergency: {employee.emergencyContactName
+                    ? `${employee.emergencyContactName} — ${employee.emergencyContact}`
+                    : employee.emergencyContact}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -144,7 +151,7 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
               )}
               {canSeeSalary && (
                 <div className="flex items-center gap-3 text-sm">
-                  <DollarSign className="size-4 text-muted-foreground" />
+                  <IndianRupee className="size-4 text-muted-foreground" />
                   <span>{formatCurrency(employee.salary)} / year</span>
                 </div>
               )}
@@ -166,7 +173,9 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
                       </div>
                       <div className="flex items-center gap-3 text-sm">
                         <span className="text-muted-foreground">
-                          {record.checkIn ? `${record.checkIn} - ${record.checkOut || "Present"}` : "No record"}
+                          {record.checkIn
+                            ? `${to12h(record.checkIn)} - ${to12h(record.checkOut) ?? "Present"}`
+                            : "No record"}
                         </span>
                         {getStatusBadge(record.status)}
                       </div>

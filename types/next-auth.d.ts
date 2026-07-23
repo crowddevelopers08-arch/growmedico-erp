@@ -6,6 +6,8 @@ declare module "next-auth" {
     role: string
     employeeId?: string
     initials: string
+    /** Employee department — some permissions are department-based (e.g. CSM). */
+    department?: string
   }
   interface Session {
     user: {
@@ -16,6 +18,7 @@ declare module "next-auth" {
       role: string
       employeeId?: string
       initials: string
+      department?: string
     }
   }
 }
@@ -25,5 +28,6 @@ declare module "next-auth/jwt" {
     role: string
     employeeId?: string
     initials: string
+    department?: string
   }
 }

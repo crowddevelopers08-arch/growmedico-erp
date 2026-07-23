@@ -1,7 +1,7 @@
 export type EmployeeStatus = "present" | "absent" | "onLeave" | "remote" | "late"
 export type AccountRole = "ADMIN" | "MANAGER" | "EMPLOYEE"
 
-export type LeaveType = "Casual Leave" | "Privilege Leave" | "Sick Leave" | "Work From Home"
+export type LeaveType = "Casual Leave" | "Privilege Leave" | "Sick Leave" | "Work From Home" | "Permission"
 
 export type LeaveStatus = "pending" | "approved" | "rejected"
 
@@ -22,6 +22,7 @@ export interface Employee {
   salary: number
   address: string
   emergencyContact: string
+  emergencyContactName: string
   dateOfBirth: string
 }
 
@@ -45,6 +46,12 @@ export interface LeaveRequest {
   startDate: string
   endDate: string
   days: number
+  /** Permission requests only: duration in hours. */
+  hours?: number | null
+  /** Permission requests only: which permission of the month this was. */
+  permissionIndex?: number | null
+  /** Permission requests only: "none" | "half_day" | "full_day". */
+  penalty?: string | null
   reason: string
   status: LeaveStatus
   appliedOn: string

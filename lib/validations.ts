@@ -6,7 +6,7 @@ const channelSlugRegex = /^[a-z0-9-]{1,50}$/
 const departments = ["Web Developer", "Media Buyer", "Video Editors", "CSM", "Operations Manager", "Content Writer", "SEO", "Founder", "Co-Founder", "Graphic Designer", "HR", "Senior Media Buyer", "Performance Marketer", "Social Media Manager"] as const
 const accountRoles = ["ADMIN", "MANAGER", "EMPLOYEE"] as const
 const employeeStatuses = ["present", "absent", "onLeave", "remote", "late"] as const
-const leaveTypes = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home"] as const
+const leaveTypes = ["Casual Leave", "Privilege Leave", "Sick Leave", "Work From Home", "Permission"] as const
 const taskPriorities = ["low", "medium", "high", "urgent"] as const
 const taskStatuses = ["pending", "in_progress", "completed", "cancelled"] as const
 
@@ -24,6 +24,7 @@ export const employeeBaseSchema = z.object({
   status: z.enum(employeeStatuses, { message: "Select a status" }),
   salary: z.coerce.number({ message: "Enter a valid salary" }).positive("Salary must be greater than 0"),
   address: z.string().trim().min(1, "Address is required"),
+  emergencyContactName: z.string().trim().min(2, "Emergency contact name must be at least 2 characters"),
   emergencyContact: z.string().trim().regex(phoneRegex, "Enter a valid emergency contact number"),
   dateOfBirth: z.string().trim().min(1, "Date of birth is required"),
   joinDate: z.string().trim().min(1, "Join date is required"),
@@ -54,12 +55,27 @@ export const leaveRequestSchema = z
     type: z.enum(leaveTypes, { message: "Select a leave type" }),
     startDate: z.string().trim().min(1, "Start date is required"),
     endDate: z.string().trim().min(1, "End date is required"),
-    days: z.coerce.number().int().positive("Days must be at least 1"),
+    // A Permission is measured in hours, not days, so it submits days: 0.
+    days: z.coerce.number().int().min(0),
+    hours: z.coerce
+      .number()
+      .positive("Hours must be greater than 0")
+      .max(8, "A permission cannot exceed 8 hours")
+      .optional(),
     reason: z.string().trim().min(5, "Reason must be at least 5 characters"),
   })
   .refine((data) => new Date(data.endDate) >= new Date(data.startDate), {
     message: "End date cannot be before start date",
     path: ["endDate"],
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "Permission") {
+      if (data.hours === undefined) {
+        ctx.addIssue({ code: "custom", path: ["hours"], message: "Enter the number of hours" })
+      }
+    } else if (data.days < 1) {
+      ctx.addIssue({ code: "custom", path: ["days"], message: "Days must be at least 1" })
+    }
   })
 
 export const leaveDecisionSchema = z.object({

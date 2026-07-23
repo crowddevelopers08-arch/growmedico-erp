@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { todayIST } from "@/lib/date"
 import { getUserIdForEmployee, notify } from "@/lib/notifications"
 import { leaveDecisionSchema, firstIssueMessage } from "@/lib/validations"
+import { canApproveLeave } from "@/lib/permissions"
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== "ADMIN") {
+  // Admins and the HR department can decide on leave requests.
+  if (!session || !canApproveLeave(session.user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -23,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const updateData: Record<string, string | undefined> = { status }
     if (status === "approved") {
       updateData.approvedBy = approvedBy
-      updateData.approvedOn = new Date().toISOString().split("T")[0]
+      updateData.approvedOn = todayIST()
     }
     if (status === "rejected" && rejectionReason) {
       updateData.rejectionReason = rejectionReason

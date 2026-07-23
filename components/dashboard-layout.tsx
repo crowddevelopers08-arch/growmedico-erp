@@ -6,14 +6,12 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { HRProvider } from "@/lib/hr-context"
-import { useHR } from "@/lib/hr-context"
 import { LoadingScreen } from "@/components/loading-screen"
 
+// The layout shell stays mounted while HR data loads — pages render their own
+// empty states instead of the whole screen being replaced by a loader on every
+// navigation.
 function DashboardContent({ children }: { children: ReactNode }) {
-  const { isLoading } = useHR()
-
-  if (isLoading) return <LoadingScreen />
-
   return (
     <SidebarProvider>
       <AppSidebar />

@@ -63,6 +63,7 @@ model Employee {
   salary           Float
   address          String
   emergencyContact String
+  emergencyContactName String @default("")
   dateOfBirth      String
   user             User?
   attendance       Attendance[]
@@ -101,6 +102,11 @@ model LeaveRequest {
   startDate       String
   endDate         String
   days            Int
+  // Permission-type requests only: duration in hours, the running count of
+  // permissions taken that month, and the resulting deduction.
+  hours           Float?
+  permissionIndex Int?
+  penalty         String?
   reason          String
   status          String   @default("pending")
   appliedOn       String

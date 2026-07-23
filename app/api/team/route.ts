@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { todayIST } from "@/lib/date"
 
 // Team directory: every login grouped by account role. Built from the User
 // table (left-joined to Employee) so that admin/manager logins without an
@@ -11,7 +12,7 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const today = new Date().toISOString().split("T")[0]
+  const today = todayIST()
 
   const [users, todayAttendance, approvedLeavesToday] = await Promise.all([
     prisma.user.findMany({

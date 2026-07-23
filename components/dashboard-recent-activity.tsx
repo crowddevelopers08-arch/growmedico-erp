@@ -1,6 +1,6 @@
 "use client"
 
-import { CalendarDays, Clock, DollarSign, Users, Settings } from "lucide-react"
+import { CalendarDays, Clock, IndianRupee, Users, Settings } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -14,7 +14,7 @@ const getActivityIcon = (type: string) => {
     case "attendance":
       return Clock
     case "salary":
-      return DollarSign
+      return IndianRupee
     case "employee":
       return Users
     default:

@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Plus, Search, Trash2, CheckCircle2, Clock, AlertCircle,
   CircleDot, CalendarIcon, ChevronDown, ClipboardList, MessageSquare, BriefcaseBusiness,
-  UserCircle, Handshake, ListChecks, User,
+  UserCircle, Handshake, ListChecks, User, ChevronLeft, ChevronRight, Users,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -17,6 +17,9 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { cn } from "@/lib/utils"
+import { toDateStr, todayIST } from "@/lib/date"
+import { canManageDelivery } from "@/lib/permissions"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog"
@@ -56,6 +59,17 @@ const priorities: TaskPriority[] = ["low", "medium", "high", "urgent"]
 
 type ListView = "all" | "assigned" | "collaborator" | "self"
 
+type DueFilter = "all" | "overdue" | "today" | "week" | "month" | "custom"
+
+const dueFilterLabels: { id: DueFilter; label: string }[] = [
+  { id: "all", label: "All dates" },
+  { id: "overdue", label: "Overdue" },
+  { id: "today", label: "Due today" },
+  { id: "week", label: "This week" },
+  { id: "month", label: "This month" },
+  { id: "custom", label: "Custom range…" },
+]
+
 const listViews: { id: ListView; label: string; icon: typeof ListChecks }[] = [
   { id: "all", label: "All Tasks", icon: ListChecks },
   { id: "assigned", label: "Assigned to me", icon: UserCircle },
@@ -93,7 +107,8 @@ function TasksPageContent() {
   const activeList: ListView =
     listParam === "assigned" || listParam === "collaborator" || listParam === "self" ? listParam : "all"
   const isAdmin = session?.user?.role === "ADMIN"
-  const canManageTasks = isAdmin || session?.user?.role === "MANAGER"
+  // CSMs get the same delivery permissions as managers.
+  const canManageTasks = canManageDelivery(session?.user)
 
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<ClientProject[]>([])
@@ -101,6 +116,14 @@ function TasksPageContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState<TaskStatus | "all">("all")
   const [selectedProjectId, setSelectedProjectId] = useState("all")
+  // Role drill-down: pick a department to see its people, then pick a person to
+  // see their tasks. `null` employee means we're still on the roster step.
+  const [selectedDepartment, setSelectedDepartment] = useState("all")
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null)
+  // Due-date filter: a preset, or an explicit range when set to "custom".
+  const [dueFilter, setDueFilter] = useState<DueFilter>("all")
+  const [dueFrom, setDueFrom] = useState("")
+  const [dueTo, setDueTo] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [deleteTask, setDeleteTask] = useState<Task | null>(null)
@@ -382,7 +405,56 @@ function TasksPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeList, employeeId, userId, tasks])
 
-  const filtered = listScopedTasks.filter((task) => {
+  // Narrow to the drilled-into person, else to the whole department. Kept
+  // separate from `filtered` so the stat cards and tab counts reflect the
+  // drill-down without also reacting to the search box.
+  const roleScopedTasks = useMemo(() => {
+    if (!selectedEmployeeId && selectedDepartment === "all") return listScopedTasks
+    return listScopedTasks.filter((task) => {
+      if (selectedEmployeeId) return task.assignedToId === selectedEmployeeId
+      return employees.find((e) => e.id === task.assignedToId)?.department === selectedDepartment
+    })
+  }, [listScopedTasks, employees, selectedEmployeeId, selectedDepartment])
+
+  // Week runs Monday–Sunday. All boundaries are "YYYY-MM-DD" strings so they
+  // compare lexicographically against task.dueDate without timezone drift.
+  const dueRange = useMemo(() => {
+    const today = todayIST()
+    const base = new Date(`${today}T00:00:00`)
+    const mondayOffset = (base.getDay() + 6) % 7
+    const weekStart = new Date(base)
+    weekStart.setDate(base.getDate() - mondayOffset)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 6)
+    return {
+      today,
+      weekStart: toDateStr(weekStart),
+      weekEnd: toDateStr(weekEnd),
+      month: today.slice(0, 7),
+    }
+  }, [])
+
+  const matchesDue = (task: Task) => {
+    if (dueFilter === "all") return true
+    if (!task.dueDate) return false // undated tasks only show under "All dates"
+    const due = task.dueDate
+    switch (dueFilter) {
+      case "overdue":
+        return due < dueRange.today && task.status !== "completed" && task.status !== "cancelled"
+      case "today":
+        return due === dueRange.today
+      case "week":
+        return due >= dueRange.weekStart && due <= dueRange.weekEnd
+      case "month":
+        return due.startsWith(dueRange.month)
+      case "custom":
+        return (!dueFrom || due >= dueFrom) && (!dueTo || due <= dueTo)
+      default:
+        return true
+    }
+  }
+
+  const filtered = roleScopedTasks.filter((task) => {
     const matchesTab = activeTab === "all" || task.status === activeTab
     const matchesProject = selectedProjectId === "all" || task.projectId === selectedProjectId
     const employee = employees.find((e) => e.id === task.assignedToId)
@@ -394,15 +466,43 @@ function TasksPageContent() {
       label.includes(query) ||
       (employee?.name ?? "").toLowerCase().includes(query)
 
-    return matchesTab && matchesProject && matchesSearch
+    return matchesTab && matchesProject && matchesDue(task) && matchesSearch
   })
 
+  // Departments that actually have people, so the filter never offers an empty one.
+  const availableDepartments = useMemo(
+    () => Array.from(new Set(employees.map((e) => e.department))).sort(),
+    [employees],
+  )
+
+  // Roster step: everyone in the chosen department, with their task counts.
+  const departmentRoster = useMemo(() => {
+    if (selectedDepartment === "all") return []
+    return employees
+      .filter((e) => e.department === selectedDepartment)
+      .map((employee) => {
+        const own = listScopedTasks.filter((t) => t.assignedToId === employee.id)
+        return {
+          employee,
+          total: own.length,
+          pending: own.filter((t) => t.status === "pending").length,
+          inProgress: own.filter((t) => t.status === "in_progress").length,
+          completed: own.filter((t) => t.status === "completed").length,
+        }
+      })
+      .sort((a, b) => a.employee.name.localeCompare(b.employee.name))
+  }, [employees, selectedDepartment, listScopedTasks])
+
+  const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId)
+  // Show the people list until one of them is picked.
+  const showRoster = selectedDepartment !== "all" && !selectedEmployeeId
+
   const counts = {
-    all: listScopedTasks.length,
-    pending: listScopedTasks.filter((task) => task.status === "pending").length,
-    in_progress: listScopedTasks.filter((task) => task.status === "in_progress").length,
-    completed: listScopedTasks.filter((task) => task.status === "completed").length,
-    cancelled: listScopedTasks.filter((task) => task.status === "cancelled").length,
+    all: roleScopedTasks.length,
+    pending: roleScopedTasks.filter((task) => task.status === "pending").length,
+    in_progress: roleScopedTasks.filter((task) => task.status === "in_progress").length,
+    completed: roleScopedTasks.filter((task) => task.status === "completed").length,
+    cancelled: roleScopedTasks.filter((task) => task.status === "cancelled").length,
   }
 
   const listHeadings: Record<ListView, { title: string; subtitle: string }> = {
@@ -501,8 +601,8 @@ function TasksPageContent() {
               </TabsList>
             </Tabs>
 
-            <div className="grid gap-2 sm:grid-cols-[1fr_260px_220px]">
-              <div className="relative">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="relative min-w-[200px] flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
                   placeholder="Search title, client, project, assignee..."
@@ -511,8 +611,28 @@ function TasksPageContent() {
                   className="pl-9"
                 />
               </div>
+              {canManageTasks && (
+                <Select
+                  value={selectedDepartment}
+                  onValueChange={(value) => {
+                    setSelectedDepartment(value)
+                    // Changing department restarts the drill-down at the roster.
+                    setSelectedEmployeeId(null)
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="All roles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All roles</SelectItem>
+                    {availableDepartments.map((department) => (
+                      <SelectItem key={department} value={department}>{department}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="All client projects" />
                 </SelectTrigger>
                 <SelectContent>
@@ -522,18 +642,125 @@ function TasksPageContent() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="text-xs text-muted-foreground flex items-center sm:justify-end">
+              <Select value={dueFilter} onValueChange={(value) => setDueFilter(value as DueFilter)}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="All dates" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dueFilterLabels.map(({ id, label }) => (
+                    <SelectItem key={id} value={id}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="text-xs text-muted-foreground flex items-center sm:ml-auto whitespace-nowrap">
                 {projects.length > 0
                   ? `${projects.length} client project${projects.length === 1 ? "" : "s"}`
                   : "No client projects yet"}
               </div>
             </div>
+
+            {/* Explicit due-date range, only when "Custom range" is chosen */}
+            {dueFilter === "custom" && (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Due from</Label>
+                  <Input
+                    type="date"
+                    value={dueFrom}
+                    max={dueTo || undefined}
+                    onChange={(e) => setDueFrom(e.target.value)}
+                    className="w-full sm:w-[170px]"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">to</Label>
+                  <Input
+                    type="date"
+                    value={dueTo}
+                    min={dueFrom || undefined}
+                    onChange={(e) => setDueTo(e.target.value)}
+                    className="w-full sm:w-[170px]"
+                  />
+                </div>
+                {(dueFrom || dueTo) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-muted-foreground"
+                    onClick={() => { setDueFrom(""); setDueTo("") }}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Drill-down breadcrumb once a person is selected */}
+            {selectedEmployee && (
+              <div className="flex items-center gap-2 text-sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-muted-foreground"
+                  onClick={() => setSelectedEmployeeId(null)}
+                >
+                  <ChevronLeft className="size-4" />
+                  {selectedDepartment}
+                </Button>
+                <span className="text-muted-foreground">/</span>
+                <span className="font-medium">{selectedEmployee.name}</span>
+              </div>
+            )}
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">Loading tasks...</div>
+          ) : showRoster ? (
+            // Step 1 of the drill-down: everyone in the chosen department.
+            departmentRoster.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
+                <Users className="size-8 opacity-40" />
+                <p className="text-sm">No one in {selectedDepartment}</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/50">
+                {departmentRoster.map(({ employee, total, pending, inProgress, completed }) => (
+                  <div
+                    key={employee.id}
+                    className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => setSelectedEmployeeId(employee.id)}
+                  >
+                    <Avatar className="size-9">
+                      <AvatarImage src={employee.avatar} alt={employee.name} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                        {employee.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{employee.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{employee.role || employee.department}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {pending > 0 && (
+                        <Badge variant="secondary" className="border-0 bg-warning/10 text-warning text-xs">{pending} pending</Badge>
+                      )}
+                      {inProgress > 0 && (
+                        <Badge variant="secondary" className="border-0 bg-chart-1/10 text-chart-1 text-xs">{inProgress} in progress</Badge>
+                      )}
+                      {completed > 0 && (
+                        <Badge variant="secondary" className="border-0 bg-success/10 text-success text-xs">{completed} done</Badge>
+                      )}
+                      <span className="ml-1 text-xs text-muted-foreground whitespace-nowrap">
+                        {total} task{total === 1 ? "" : "s"}
+                      </span>
+                      <ChevronRight className="size-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
               <ClipboardList className="size-8 opacity-40" />

@@ -6,7 +6,7 @@ import {
   Users,
   Clock,
   CalendarDays,
-  DollarSign,
+  IndianRupee,
   Settings,
   LogOut,
   ChevronDown,
@@ -53,10 +53,11 @@ const adminNavItems = [
   { title: "Employees", href: "/employees", icon: Users },
   { title: "Team Directory", href: "/team", icon: Network },
   { title: "Attendance", href: "/attendance", icon: Clock },
-  { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
-  { title: "Salary", href: "/salary", icon: DollarSign },
   { title: "Tasks", href: "/tasks", icon: ClipboardList },
   { title: "Projects", href: "/projects", icon: FolderKanban },
+  { title: "Channels", href: "/channels", icon: Hash },
+  { title: "Chat", href: "/chat", icon: MessageSquare },
+  { title: "Salary", href: "/salary", icon: IndianRupee },
 ]
 
 const employeeNavItems = [
@@ -65,9 +66,11 @@ const employeeNavItems = [
   { title: "Employees", href: "/employees", icon: Users },
   { title: "Team Directory", href: "/team", icon: Network },
   { title: "Attendance", href: "/attendance", icon: Clock },
-  { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
   { title: "Tasks", href: "/tasks", icon: ClipboardList },
   { title: "Projects", href: "/projects", icon: FolderKanban },
+  { title: "Channels", href: "/channels", icon: Hash },
+  { title: "Chat", href: "/chat", icon: MessageSquare },
+  { title: "Leave Requests", href: "/leaves", icon: CalendarDays },
 ]
 
 function UnreadBadge({ count }: { count: number }) {
@@ -208,48 +211,12 @@ export function AppSidebar() {
                       <span>{item.title}</span>
                       {item.href === "/tasks" && <NotifyDot count={assignedCount} />}
                       {item.href === "/notifications" && <UnreadBadge count={notificationsUnread} />}
+                      {item.href === "/channels" && <UnreadBadge count={channelsUnread} />}
+                      {item.href === "/chat" && <UnreadBadge count={chatUnread} />}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Channels
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === "/channels"}
-                  tooltip="Channels"
-                  className="h-9 rounded-lg transition-colors group"
-                >
-                  <Link href="/channels">
-                    <Hash className="size-4 shrink-0" />
-                    <span>Channels</span>
-                    <UnreadBadge count={channelsUnread} />
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === "/chat"}
-                  tooltip="Private Chat"
-                  className="h-9 rounded-lg transition-colors group"
-                >
-                  <Link href="/chat">
-                    <MessageSquare className="size-4 shrink-0" />
-                    <span>Private Chat</span>
-                    <UnreadBadge count={chatUnread} />
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

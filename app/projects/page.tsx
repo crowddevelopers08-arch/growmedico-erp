@@ -8,6 +8,8 @@ import {
   FolderKanban,
   Handshake,
   Info,
+  PanelLeftClose,
+  PanelLeftOpen,
   Layers,
   Plus,
   Search,
@@ -19,6 +21,8 @@ import {
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { CsmPanel, projectBelongsToCsm } from "@/components/csm-panel"
+import { canManageDelivery } from "@/lib/permissions"
 import { TaskDetailSheet } from "@/components/task-detail-sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -135,7 +139,26 @@ function ProjectsPageContent() {
   const { data: session } = useSession()
   const { employees } = useHR()
   const isAdmin = session?.user?.role === "ADMIN"
-  const canManageProjects = isAdmin || session?.user?.role === "MANAGER"
+  // CSMs get the same delivery permissions as managers.
+  const canManageProjects = canManageDelivery(session?.user)
+  // Client Success side panel: null = no CSM filter (show everything).
+  const [selectedCsmId, setSelectedCsmId] = useState<string | null>(null)
+  // Either left panel can be collapsed to give the detail pane more room.
+  const [csmCollapsed, setCsmCollapsed] = useState(false)
+  const [projectListCollapsed, setProjectListCollapsed] = useState(false)
+
+  // Written out as complete class strings — Tailwind's JIT only generates
+  // classes it can see literally, so these can't be built by interpolation.
+  // The CSM panel is visible to everyone — it is read-only context, not a
+  // management control.
+  const gridColumnsClass =
+    csmCollapsed && projectListCollapsed
+      ? "xl:grid-cols-[72px_72px_minmax(0,1fr)]"
+      : csmCollapsed
+      ? "xl:grid-cols-[72px_340px_minmax(0,1fr)]"
+      : projectListCollapsed
+      ? "xl:grid-cols-[260px_72px_minmax(0,1fr)]"
+      : "xl:grid-cols-[260px_340px_minmax(0,1fr)]"
 
   const [projects, setProjects] = useState<ProjectWithCount[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
@@ -207,24 +230,28 @@ function ProjectsPageContent() {
 
   const visibleProjects = useMemo(() => {
     const query = projectQuery.trim().toLowerCase()
-    const allowed = canManageProjects
-      ? projects
-      : projects.filter((project) => {
-          const isExplicitMember = project.members?.some((member) => member.employeeId === session?.user?.employeeId)
-          const hasAssignedTask = tasks.some((task) => task.projectId === project.id && task.assignedToId === session?.user?.employeeId)
-          return isExplicitMember || hasAssignedTask
-        })
 
-    return allowed.filter((project) =>
+    // Every employee can browse the full project portfolio — visibility is open,
+    // while editing stays gated behind canManageProjects.
+    // Narrow to the CSM picked in the side panel, when one is selected.
+    const byCsm = selectedCsmId
+      ? projects.filter((project) => projectBelongsToCsm(project, selectedCsmId))
+      : projects
+
+    return byCsm.filter((project) =>
       !query ||
       project.name.toLowerCase().includes(query) ||
       project.clientName.toLowerCase().includes(query) ||
       (project.description ?? "").toLowerCase().includes(query)
     )
-  }, [canManageProjects, projectQuery, projects, session?.user?.employeeId, tasks])
+  }, [projectQuery, projects, selectedCsmId])
 
   useEffect(() => {
-    if (!selectedProjectId && visibleProjects[0]) setSelectedProjectId(visibleProjects[0].id)
+    // Also re-point when the current project falls outside the visible list
+    // (e.g. after picking a CSM), so the detail pane never shows a project the
+    // list no longer contains.
+    const stillVisible = visibleProjects.some((project) => project.id === selectedProjectId)
+    if (!stillVisible && visibleProjects[0]) setSelectedProjectId(visibleProjects[0].id)
   }, [selectedProjectId, visibleProjects])
 
   const selectedProject = visibleProjects.find((project) => project.id === selectedProjectId) ?? null
@@ -630,7 +657,37 @@ function ProjectsPageContent() {
 
   return (
     <>
-      <div className="grid gap-4 lg:gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <div className={cn("grid gap-4 lg:gap-6", gridColumnsClass)}>
+        <CsmPanel
+          projects={projects}
+          employees={employees}
+          selectedCsmId={selectedCsmId}
+          onSelect={setSelectedCsmId}
+          collapsed={csmCollapsed}
+          onToggleCollapse={() => setCsmCollapsed((value) => !value)}
+        />
+        {projectListCollapsed ? (
+          <aside className="flex h-fit items-center gap-2 rounded-[28px] border bg-card p-2 text-card-foreground shadow-sm xl:flex-col">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 rounded-xl"
+              onClick={() => setProjectListCollapsed(false)}
+              title="Expand Projects"
+              aria-label="Expand Projects"
+            >
+              <PanelLeftOpen className="size-4" />
+            </Button>
+            <div className="grid size-9 shrink-0 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+              <FolderKanban className="size-4" />
+            </div>
+            <span className="text-sm font-medium xl:hidden">Projects</span>
+            <span className="hidden text-xs tracking-wide text-muted-foreground [writing-mode:vertical-rl] xl:block">
+              Projects
+            </span>
+            <span className="ml-auto text-xs text-muted-foreground xl:ml-0">{visibleProjects.length}</span>
+          </aside>
+        ) : (
         <aside className="overflow-hidden rounded-[28px] border bg-card text-card-foreground shadow-sm">
           <div className="border-b p-4 sm:p-5">
             <div className="flex items-center justify-between gap-3">
@@ -641,7 +698,19 @@ function ProjectsPageContent() {
                   <p className="text-sm text-muted-foreground">Client delivery workspace</p>
                 </div>
               </div>
-              {canManageProjects && <Button size="icon" className="rounded-full" onClick={() => { resetProjectForm(); setProjectDialogOpen(true) }}><Plus className="size-5" /></Button>}
+              <div className="flex items-center gap-1">
+                {canManageProjects && <Button size="icon" className="rounded-full" onClick={() => { resetProjectForm(); setProjectDialogOpen(true) }}><Plus className="size-5" /></Button>}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0 rounded-lg text-muted-foreground"
+                  onClick={() => setProjectListCollapsed(true)}
+                  title="Collapse Projects"
+                  aria-label="Collapse Projects"
+                >
+                  <PanelLeftClose className="size-4" />
+                </Button>
+              </div>
             </div>
             <div className="mt-4 rounded-2xl border bg-muted/30 p-4">
               <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground"><span>Portfolio progress</span><span>{completedTasks}/{selectedProjectTasks.length}</span></div>
@@ -689,17 +758,21 @@ function ProjectsPageContent() {
             })}
           </div>
         </aside>
+        )}
 
-        <section className="overflow-hidden rounded-[28px] border bg-card text-card-foreground shadow-sm">
+        {/* @container: the panes below size themselves off this section's own
+            width, not the viewport — with three columns the viewport is wide
+            while this pane is narrow, so viewport breakpoints mis-fire. */}
+        <section className="@container overflow-hidden rounded-[28px] border bg-card text-card-foreground shadow-sm">
           {!selectedProject ? (
             <div className="grid min-h-[70vh] place-items-center p-8 text-muted-foreground">Select a project to open its workspace.</div>
           ) : (
             <>
               <div className="border-b px-4 py-5 sm:px-6">
-                <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 text-muted-foreground"><BriefcaseBusiness className="size-4" /><span>{selectedProject.clientName}</span></div>
-                    <h1 className="mt-2 text-3xl font-semibold">{selectedProject.name}</h1>
+                <div className="flex flex-col gap-5 @3xl:flex-row @3xl:items-start @3xl:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-muted-foreground"><BriefcaseBusiness className="size-4" /><span className="truncate">{selectedProject.clientName}</span></div>
+                    <h1 className="mt-2 text-2xl font-semibold wrap-break-word @2xl:text-3xl">{selectedProject.name}</h1>
                     <p className="mt-1 text-sm text-muted-foreground">{selectedProject.description || "Plan, assign, and track delivery in one place."}</p>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       {selectedProjectMembers.map((employee) => (
@@ -714,7 +787,7 @@ function ProjectsPageContent() {
                       {selectedProjectMembers.length === 0 && <span className="text-sm text-muted-foreground">No project members yet.</span>}
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 xl:max-w-[420px] xl:justify-end">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 @3xl:max-w-[420px] @3xl:justify-end">
                     <Button variant={viewMode === "tasks" ? "default" : "outline"} onClick={() => setViewMode("tasks")}><ClipboardList className="mr-2 size-4" />Tasks</Button>
                     <Button variant={viewMode === "table" ? "default" : "outline"} onClick={() => setViewMode("table")}><TableProperties className="mr-2 size-4" />Table</Button>
                     <Button variant={viewMode === "info" ? "default" : "outline"} onClick={() => setViewMode("info")}><Info className="mr-2 size-4" />Info</Button>
@@ -729,13 +802,17 @@ function ProjectsPageContent() {
               <div className="p-4 sm:p-6">
                 {viewMode === "tasks" && (
                   <div className="space-y-5">
-                    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-                      <div className="grid w-full gap-3 sm:grid-cols-2 xl:flex xl:w-auto xl:flex-wrap">
+                    <div className="flex flex-col gap-3 @2xl:flex-row @2xl:items-center">
+                      {/* Stages always stay on one line. They grow to fill the
+                          row when there are few, and never shrink — so once they
+                          outgrow the width this strip scrolls sideways rather
+                          than wrapping or squashing. */}
+                      <div className="flex w-full gap-3 overflow-x-auto pb-1 @2xl:min-w-0 @2xl:flex-1">
                         {visibleStages.map((stage) => {
                           const stageTasks = selectedProjectTasks.filter((task) => (task.stage || FALLBACK_STAGE) === stage)
                           return (
-                            <div key={stage} className="relative">
-                              <button type="button" onClick={() => setSelectedStage(stage)} className={cn("w-full rounded-2xl border px-4 py-3 pr-10 text-left transition-colors", selectedStage === stage ? "border-primary/30 bg-primary/10" : "bg-background/80 hover:border-primary/20 hover:bg-accent/40")}><p className="font-semibold">{stage}</p><p className="text-sm text-muted-foreground">{stageTasks.filter((task) => task.status === "completed").length}/{stageTasks.length} tasks</p></button>
+                            <div key={stage} className="relative shrink-0 grow basis-[170px]">
+                              <button type="button" onClick={() => setSelectedStage(stage)} className={cn("h-full w-full rounded-2xl border px-4 py-3 pr-10 text-left transition-colors", selectedStage === stage ? "border-primary/30 bg-primary/10" : "bg-background/80 hover:border-primary/20 hover:bg-accent/40")}><p className="font-semibold wrap-break-word">{stage}</p><p className="text-sm text-muted-foreground">{stageTasks.filter((task) => task.status === "completed").length}/{stageTasks.length} tasks</p></button>
                               {canManageProjects && (
                                 <Button
                                   type="button"
@@ -752,7 +829,7 @@ function ProjectsPageContent() {
                           )
                         })}
                       </div>
-                      <div className="relative w-full xl:w-[280px]"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="Search tasks..." className="bg-background pl-9" /></div>
+                      <div className="relative w-full shrink-0 @2xl:w-[280px]"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={taskQuery} onChange={(event) => setTaskQuery(event.target.value)} placeholder="Search tasks..." className="bg-background pl-9" /></div>
                     </div>
                     <div className="space-y-3 rounded-[26px] border bg-muted/20 p-3">
                       {visibleStages.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No stages yet. Use "Manage Stages" to add one.</div> : selectedStageTasks.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No tasks in this stage yet.</div> : selectedStageTasks.map((task) => {
@@ -787,9 +864,9 @@ function ProjectsPageContent() {
                 )}
 
                 {viewMode === "info" && (
-                  <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-                    <Card><CardHeader><CardTitle>Project Information</CardTitle></CardHeader><CardContent className="space-y-4 text-sm text-muted-foreground"><div><p className="text-muted-foreground">Client</p><p className="mt-1 text-foreground">{selectedProject.clientName}</p></div><div><p className="text-muted-foreground">Project Title</p><p className="mt-1 text-foreground">{selectedProject.name}</p></div><div><p className="text-muted-foreground">Description</p><p className="mt-1">{selectedProject.description || "No description added yet."}</p></div><div className="grid gap-4 md:grid-cols-2"><div><p className="text-muted-foreground">Due Date</p><p className="mt-1 text-foreground">{formatDate(selectedProject.dueDate)}</p></div><div><p className="text-muted-foreground">Status</p><p className="mt-1 text-foreground">{projectStatuses[selectedProject.status]}</p></div></div></CardContent></Card>
-                    <Card><CardHeader><CardTitle>Project Snapshot</CardTitle></CardHeader><CardContent className="space-y-4"><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Progress</p><p className="mt-1 text-3xl font-semibold">{getProgress(selectedProjectTasks)}%</p></div><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Project Members</p><p className="mt-1 text-3xl font-semibold">{selectedProjectMembers.length}</p></div><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Member Profiles</p><div className="mt-3 space-y-3">{selectedProjectMembers.length === 0 ? <p className="text-sm text-muted-foreground">No members added yet.</p> : selectedProjectMembers.map((employee) => <div key={employee.id} className="flex items-center gap-3"><Avatar className="size-10"><AvatarImage src={employee.avatar} /><AvatarFallback className="bg-primary/15 text-xs text-primary">{employee.initials}</AvatarFallback></Avatar><div><p className="font-medium text-foreground">{employee.name}</p><p className="text-xs text-muted-foreground">{employee.role} / {employee.department}</p></div></div>)}</div></div></CardContent></Card>
+                  <div className="grid gap-5 @3xl:grid-cols-[1.2fr_0.8fr]">
+                    <Card><CardHeader><CardTitle>Project Information</CardTitle></CardHeader><CardContent className="space-y-4 text-sm text-muted-foreground"><div><p className="text-muted-foreground">Client</p><p className="mt-1 text-foreground">{selectedProject.clientName}</p></div><div><p className="text-muted-foreground">Project Title</p><p className="mt-1 text-foreground">{selectedProject.name}</p></div><div><p className="text-muted-foreground">Description</p><p className="mt-1">{selectedProject.description || "No description added yet."}</p></div><div className="grid gap-4 @lg:grid-cols-2"><div><p className="text-muted-foreground">Due Date</p><p className="mt-1 text-foreground">{formatDate(selectedProject.dueDate)}</p></div><div><p className="text-muted-foreground">Status</p><p className="mt-1 text-foreground">{projectStatuses[selectedProject.status]}</p></div></div></CardContent></Card>
+                    <Card><CardHeader><CardTitle>Project Snapshot</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-4 @sm:grid-cols-2"><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Progress</p><p className="mt-1 text-3xl font-semibold">{getProgress(selectedProjectTasks)}%</p></div><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Project Members</p><p className="mt-1 text-3xl font-semibold">{selectedProjectMembers.length}</p></div></div><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Member Profiles</p><div className="mt-3 grid gap-3 @xl:grid-cols-2">{selectedProjectMembers.length === 0 ? <p className="text-sm text-muted-foreground">No members added yet.</p> : selectedProjectMembers.map((employee) => <div key={employee.id} className="flex min-w-0 items-center gap-3"><Avatar className="size-10 shrink-0"><AvatarImage src={employee.avatar} /><AvatarFallback className="bg-primary/15 text-xs text-primary">{employee.initials}</AvatarFallback></Avatar><div className="min-w-0"><p className="truncate font-medium text-foreground">{employee.name}</p><p className="truncate text-xs text-muted-foreground">{employee.role} / {employee.department}</p></div></div>)}</div></div></CardContent></Card>
                   </div>
                 )}
               </div>

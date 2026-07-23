@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary"
+import type { Prisma } from "./generated/prisma/client"
 
 // Server-side only. The API secret must never reach the client, so this module
 // must not be imported from a "use client" component.
@@ -62,12 +63,14 @@ export interface RawAttachment {
 export async function uploadAttachments(
   attachments: RawAttachment[] | undefined | null,
   folder: string,
-): Promise<RawAttachment[] | undefined> {
+): Promise<Prisma.InputJsonValue | undefined> {
   if (!attachments || attachments.length === 0) return undefined
-  return Promise.all(
+  const uploaded = await Promise.all(
     attachments.map(async (att) => ({
       ...att,
       data: (await uploadMedia(att.data, folder, { image: att.type?.startsWith("image/") })) ?? att.data,
     })),
   )
+  // Plain JSON-safe objects; the cast satisfies Prisma's Json field input type.
+  return uploaded as unknown as Prisma.InputJsonValue
 }

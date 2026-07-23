@@ -6,6 +6,8 @@ import { PrismaPg } from "@prisma/adapter-pg"
 const connectionString =
   process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!
 
+const isDev = process.env.NODE_ENV !== "production"
+
 type PrismaClientWithRuntimeModel = PrismaClient & {
   _runtimeDataModel?: {
     models?: Record<string, { fields?: Array<{ name?: string }> }>
@@ -14,34 +16,46 @@ type PrismaClientWithRuntimeModel = PrismaClient & {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
-function hasModelField(client: PrismaClient | undefined, modelName: string, fieldName: string) {
-  const runtimeModel = (client as PrismaClientWithRuntimeModel | undefined)?._runtimeDataModel
-  const fields = runtimeModel?.models?.[modelName]?.fields ?? []
-  return fields.some((field) => field.name === fieldName)
+function createClient() {
+  return new PrismaClient({
+    adapter: new PrismaPg({ connectionString }),
+  })
 }
 
-const cached = globalForPrisma.prisma
-const needsRefresh =
-  !cached ||
-  (process.env.NODE_ENV !== "production" && (
-    typeof (cached as any).notification === "undefined" ||
-    typeof (cached as any).pushSubscription === "undefined" ||
-    typeof (cached as any).clientProject === "undefined" ||
-    !hasModelField(cached, "ClientProject", "dueDate") ||
-    !hasModelField(cached, "ClientProject", "priority") ||
-    !hasModelField(cached, "ClientProject", "status") ||
-    !hasModelField(cached, "ClientProject", "createdById") ||
-    !hasModelField(cached, "ClientProject", "members") ||
-    !hasModelField(cached, "ClientProject", "stages") ||
-    !hasModelField(cached, "Task", "assignedByName") ||
-    !hasModelField(cached, "Task", "assignedByAvatar") ||
-    !hasModelField(cached, "Task", "collaborators")
-  ))
+/**
+ * A cheap signature of every model + field name the client knows about.
+ * Comparing signatures detects *any* schema change generically, so we no longer
+ * have to hand-maintain a list of newly added fields here — forgetting to do so
+ * silently kept a stale client alive across hot-reloads and made new columns
+ * fail with "Unknown argument".
+ */
+function datamodelSignature(client: PrismaClient | undefined): string {
+  const models = (client as PrismaClientWithRuntimeModel | undefined)?._runtimeDataModel?.models ?? {}
+  return Object.entries(models)
+    .map(([model, def]) => `${model}:${(def.fields ?? []).map((f) => f.name).join(",")}`)
+    .sort()
+    .join("|")
+}
 
-export const prisma = needsRefresh
-  ? new PrismaClient({
-      adapter: new PrismaPg({ connectionString }),
-    })
-  : cached
+function resolveClient(): PrismaClient {
+  // Production evaluates this module once; no invalidation needed.
+  if (!isDev) return globalForPrisma.prisma ?? createClient()
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+  const cached = globalForPrisma.prisma
+  if (!cached) return createClient()
+
+  // Building a client is cheap and does not open a connection (the pg pool is
+  // lazy), so we can create one to compare schemas and discard the loser.
+  const candidate = createClient()
+  if (datamodelSignature(cached) === datamodelSignature(candidate)) {
+    void candidate.$disconnect().catch(() => {})
+    return cached
+  }
+
+  void cached.$disconnect().catch(() => {})
+  return candidate
+}
+
+export const prisma = resolveClient()
+
+if (isDev) globalForPrisma.prisma = prisma
