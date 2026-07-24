@@ -475,11 +475,15 @@ export function TaskDetailSheet({
 
           <div className="px-6 py-4 shrink-0">
             <div className="flex items-start gap-3">
-              <Avatar className="size-7 shrink-0 mt-1">
-                <AvatarImage src={session?.user?.image ?? undefined} />
-                <AvatarFallback className="text-tiny bg-primary/10 text-primary">{session?.user?.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
+              {/* Boxed to the composer pill's height so the avatar centres on the
+                  input row and stays put as the textarea grows. */}
+              <div className="flex h-10 shrink-0 items-center sm:h-11">
+                <Avatar className="size-7">
+                  <AvatarImage src={session?.user?.image ?? undefined} />
+                  <AvatarFallback className="text-tiny bg-primary/10 text-primary">{session?.user?.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </div>
+              <div className="min-w-0 flex-1">
                 <ChatInput
                   placeholder="Add a comment..."
                   users={mentionUsers}

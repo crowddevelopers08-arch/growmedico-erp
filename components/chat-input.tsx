@@ -298,12 +298,14 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
 
       {/* Main input row */}
       <div className="flex items-end gap-1.5 sm:gap-2">
-        {/* Pill input container */}
-        <div className="flex min-h-11 flex-1 items-end gap-0.5 rounded-3xl border bg-card px-1.5 py-1.5 shadow-sm sm:gap-1 sm:px-2">
+        {/* Pill input container. Padding is picked so the pill matches the
+            send/mic button beside it at each breakpoint: the 32px controls plus
+            the vertical padding come to 40px on mobile and 44px from sm up. */}
+        <div className="flex min-h-10 flex-1 items-end gap-0.5 rounded-3xl border bg-card px-1 py-1 shadow-sm sm:min-h-11 sm:gap-1 sm:px-2 sm:py-1.5">
           {/* Emoji button */}
           <Button
             variant="ghost" size="icon"
-            className="mb-0.5 size-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+            className="size-8 shrink-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
             disabled={disabled}
             title="Emoji"
             onClick={() => setShowEmoji((v) => !v)}
@@ -336,13 +338,13 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
                 if (e.key === "Enter" && !e.shiftKey && !mentionState) { e.preventDefault(); handleSend() }
               }}
               rows={rows}
-              className="relative min-h-7 max-h-32 w-full resize-none border-none bg-transparent py-1.5 text-sm text-transparent caret-foreground shadow-none selection:bg-primary/25 placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="relative min-h-8 max-h-32 w-full resize-none border-none bg-transparent py-1.5 text-sm text-transparent caret-foreground shadow-none selection:bg-primary/25 placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={disabled || isRecording}
             />
           </div>
 
           {/* Attach button */}
-          <div className="flex items-center shrink-0 mb-0.5">
+          <div className="flex shrink-0 items-center">
             <input
               ref={fileInputRef}
               type="file"

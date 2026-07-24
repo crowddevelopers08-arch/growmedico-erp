@@ -76,47 +76,45 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader className="space-y-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <Avatar className="size-16 ring-2 ring-border">
-                <AvatarImage src={employee.avatar} alt={employee.name} />
-                <AvatarFallback className="bg-primary/10 text-primary text-lg font-medium">
-                  {employee.initials}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <SheetTitle className="text-xl">{employee.name}</SheetTitle>
-                <p className="text-sm text-muted-foreground">{employee.role}</p>
-                <div className="mt-2">{getStatusBadge(employee.status)}</div>
-              </div>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader className="gap-4 pr-14 sm:pl-6 sm:pr-14">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Avatar className="size-12 shrink-0 ring-2 ring-border sm:size-16">
+              <AvatarImage src={employee.avatar} alt={employee.name} />
+              <AvatarFallback className="bg-primary/10 text-primary font-medium sm:text-lg">
+                {employee.initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <SheetTitle className="text-lg wrap-break-word sm:text-xl">{employee.name}</SheetTitle>
+              <p className="text-sm text-muted-foreground wrap-break-word">{employee.role}</p>
+              <div className="mt-2">{getStatusBadge(employee.status)}</div>
             </div>
           </div>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <div className="space-y-6 px-4 pb-6 sm:px-6">
           {/* Contact Information */}
           <Card className="border-border/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium">Contact Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="size-4 text-muted-foreground" />
-                <span>{employee.email}</span>
+              <div className="flex items-start gap-3 text-sm">
+                <Mail className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 wrap-break-word">{employee.email}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Phone className="size-4 text-muted-foreground" />
-                <span>{employee.phone}</span>
+              <div className="flex items-start gap-3 text-sm">
+                <Phone className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 wrap-break-word">{employee.phone}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <MapPin className="size-4 text-muted-foreground" />
-                <span>{employee.address}</span>
+              <div className="flex items-start gap-3 text-sm">
+                <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 wrap-break-word">{employee.address}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <AlertCircle className="size-4 text-muted-foreground" />
-                <span>
+              <div className="flex items-start gap-3 text-sm">
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 wrap-break-word">
                   Emergency: {employee.emergencyContactName
                     ? `${employee.emergencyContactName} — ${employee.emergencyContact}`
                     : employee.emergencyContact}
@@ -132,27 +130,27 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
             </CardHeader>
             <CardContent className="space-y-3">
               {employee.department && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Building2 className="size-4 text-muted-foreground" />
-                  <span>{employee.department}</span>
+                <div className="flex items-start gap-3 text-sm">
+                  <Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 wrap-break-word">{employee.department}</span>
                 </div>
               )}
               {employee.role && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Briefcase className="size-4 text-muted-foreground" />
-                  <span>{employee.role}</span>
+                <div className="flex items-start gap-3 text-sm">
+                  <Briefcase className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 wrap-break-word">{employee.role}</span>
                 </div>
               )}
               {employee.joinDate && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Calendar className="size-4 text-muted-foreground" />
-                  <span>Joined {formatDate(employee.joinDate)}</span>
+                <div className="flex items-start gap-3 text-sm">
+                  <Calendar className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 wrap-break-word">Joined {formatDate(employee.joinDate)}</span>
                 </div>
               )}
               {canSeeSalary && (
-                <div className="flex items-center gap-3 text-sm">
-                  <IndianRupee className="size-4 text-muted-foreground" />
-                  <span>{formatCurrency(employee.salary)} / year</span>
+                <div className="flex items-start gap-3 text-sm">
+                  <IndianRupee className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 wrap-break-word">{formatCurrency(employee.salary)} / year</span>
                 </div>
               )}
             </CardContent>
@@ -167,11 +165,11 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
               {recentAttendance.length > 0 ? (
                 <div className="space-y-2">
                   {recentAttendance.map((record) => (
-                    <div key={record.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                    <div key={record.id} className="flex flex-col gap-1 border-b border-border/50 py-2 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                       <div className="text-sm">
                         <span className="text-muted-foreground">{formatDate(record.date)}</span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                         <span className="text-muted-foreground">
                           {record.checkIn
                             ? `${to12h(record.checkIn)} - ${to12h(record.checkOut) ?? "Present"}`
@@ -197,12 +195,12 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
               <CardContent>
                 <div className="space-y-2">
                   {pendingLeaves.map((request) => (
-                    <div key={request.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                      <div className="text-sm">
-                        <p className="font-medium">{request.type}</p>
+                    <div key={request.id} className="flex items-center justify-between gap-3 border-b border-border/50 py-2 last:border-0">
+                      <div className="min-w-0 text-sm">
+                        <p className="font-medium wrap-break-word">{request.type}</p>
                         <p className="text-muted-foreground">{request.days} day{request.days > 1 ? "s" : ""}</p>
                       </div>
-                      <Badge variant="outline" className="text-warning border-warning/30 bg-warning/10">Pending</Badge>
+                      <Badge variant="outline" className="shrink-0 text-warning border-warning/30 bg-warning/10">Pending</Badge>
                     </div>
                   ))}
                 </div>
@@ -214,27 +212,27 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
           {canSeeSalary && latestSalary && (
             <Card className="border-border/50">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Latest Salary ({latestSalary.month} {latestSalary.year})</CardTitle>
+                <CardTitle className="text-sm font-medium wrap-break-word">Latest Salary ({latestSalary.month} {latestSalary.year})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">Base Salary</span>
                   <span>{formatCurrency(latestSalary.baseSalary)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">Bonus</span>
                   <span className="text-success">+{formatCurrency(latestSalary.bonus)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">Overtime</span>
                   <span className="text-success">+{formatCurrency(latestSalary.overtime)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">Deductions</span>
                   <span className="text-destructive">-{formatCurrency(latestSalary.deductions)}</span>
                 </div>
                 <Separator />
-                <div className="flex justify-between text-sm font-medium">
+                <div className="flex justify-between gap-3 text-sm font-medium">
                   <span>Net Salary</span>
                   <span>{formatCurrency(latestSalary.netSalary)}</span>
                 </div>
@@ -242,13 +240,13 @@ export function EmployeeDetails({ employee, open, onOpenChange, onEdit }: Employ
             </Card>
           )}
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col gap-3 pt-4 sm:flex-row">
             {canEdit && (
-              <Button className="flex-1" onClick={() => onEdit(employee)}>
+              <Button className="w-full sm:flex-1" onClick={() => onEdit(employee)}>
                 Edit Employee
               </Button>
             )}
-            <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" className="w-full sm:flex-1" onClick={() => onOpenChange(false)}>
               Close
             </Button>
           </div>
