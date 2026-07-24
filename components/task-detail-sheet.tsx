@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils"
 import { ChatInput, type MentionUser, type SendData, type Attachment } from "@/components/chat-input"
 import type { Task, TaskStatus, TaskPriority, TaskComment, Employee } from "@/lib/types"
+import { WorkingTimeBadge } from "@/components/working-time-badge"
 
 interface TaskDetailSheetProps {
   task: Task | null
@@ -249,7 +250,7 @@ export function TaskDetailSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-lg flex flex-col p-0 gap-0">
+        <SheetContent className="@container w-full sm:max-w-lg lg:max-w-2xl flex flex-col p-0 gap-0">
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/50">
             <div className="flex items-start gap-3">
               <div className={`mt-1 size-2.5 rounded-full shrink-0 ${
@@ -283,9 +284,13 @@ export function TaskDetailSheet({
                 <StatusIcon className="size-3" />{statusConfig[task.status].label}
               </Badge>
               {isOverdue && <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
+              <WorkingTimeBadge task={task} intervalMs={1000} />
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {/* Responds to the sheet's own width (@container): stacked when
+                narrow, three-up only once there's real room, so names never
+                truncate or clip past the edge. */}
+            <div className="mt-4 grid gap-3 @sm:grid-cols-2 @2xl:grid-cols-3">
               <PersonCard label="Created By" name={createdByName} avatar={createdByAvatar} />
               <PersonCard label="Assigner" name={assignerName} avatar={assignerAvatar} />
               <PersonCard label="Assignee" name={employeeName ?? "Unassigned"} avatar={employeeAvatar} />
@@ -347,7 +352,7 @@ export function TaskDetailSheet({
             </span>
           </div>
 
-          <ScrollArea className="flex-1 px-6 py-4">
+          <ScrollArea className="flex-1 min-h-0 px-6 py-4">
             {loadingComments ? (
               <div className="flex items-center justify-center h-20 text-sm text-muted-foreground">Loading comments...</div>
             ) : comments.length === 0 ? (

@@ -198,6 +198,7 @@ function ProjectsPageContent() {
   const [taskPriority, setTaskPriority] = useState<TaskPriority>("medium")
   const [taskStatus, setTaskStatus] = useState<TaskStatus>("pending")
   const [taskDueDate, setTaskDueDate] = useState("")
+  const [taskEstimatedHours, setTaskEstimatedHours] = useState("")
   const [taskStageOverride, setTaskStageOverride] = useState<string | null>(null)
   const [taskDelegate, setTaskDelegate] = useState(false)
   const [taskManagerId, setTaskManagerId] = useState("")
@@ -341,6 +342,7 @@ function ProjectsPageContent() {
     setTaskPriority("medium")
     setTaskStatus("pending")
     setTaskDueDate("")
+    setTaskEstimatedHours("")
     setTaskStageOverride(null)
     setTaskDelegate(false)
     setTaskManagerId("")
@@ -514,6 +516,7 @@ function ProjectsPageContent() {
       status: taskStatus,
       stage: !editingTask ? taskStageOverride ?? undefined : undefined,
       dueDate: taskDueDate || null,
+      estimatedHours: taskEstimatedHours ? Number(taskEstimatedHours) : null,
       projectId: selectedProject.id,
     })
     if (!parsed.success) {
@@ -617,6 +620,7 @@ function ProjectsPageContent() {
     setTaskPriority(task.priority)
     setTaskStatus(task.status)
     setTaskDueDate(task.dueDate ?? "")
+    setTaskEstimatedHours(task.estimatedHours != null ? String(task.estimatedHours) : "")
     // Delegation is chosen at creation only; editing reassigns the current
     // assignee while the recorded manager is preserved server-side.
     setTaskDelegate(false)
@@ -945,6 +949,7 @@ function ProjectsPageContent() {
               />
             )}
             <div className="grid gap-4 md:grid-cols-3"><div className="space-y-2"><Label>Priority</Label><Select value={taskPriority} onValueChange={(value) => setTaskPriority(value as TaskPriority)}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(priorityClasses).map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Status</Label><Select value={taskStatus} onValueChange={(value) => setTaskStatus(value as TaskStatus)}><SelectTrigger className="bg-background"><SelectValue /></SelectTrigger><SelectContent>{Object.keys(taskStatuses).map((status) => <SelectItem key={status} value={status}>{taskStatuses[status as TaskStatus]}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2"><Label>Due Date</Label><Input type="date" value={taskDueDate} onChange={(event) => setTaskDueDate(event.target.value)} className="bg-background" /></div></div>
+          <div className="space-y-2"><Label>Time Allocation (working hours)</Label><Input type="text" inputMode="decimal" placeholder="e.g. 48" value={taskEstimatedHours} onChange={(event) => setTaskEstimatedHours(event.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))} className="bg-background" /><p className="text-xs text-muted-foreground">Countdown starts on assignment. Counts office hours only (10:00 AM–7:00 PM, Sundays excluded).</p></div>
           </div>
           <DialogFooter className="flex items-center justify-between gap-3"><div>{editingTask && canManageProjects && <Button type="button" variant="destructive" onClick={() => void handleTaskDelete(editingTask)} loading={taskDeleting}><Trash2 className="mr-2 size-4" />Delete</Button>}</div><div className="flex flex-wrap items-center gap-2 sm:gap-3 xl:max-w-[420px] xl:justify-end"><Button type="button" variant="outline" onClick={() => { setTaskDialogOpen(false); resetTaskForm() }} disabled={taskSaving || taskDeleting}>Cancel</Button><Button type="button" onClick={handleTaskSave} loading={taskSaving}>{editingTask ? "Update Task" : taskDelegate ? "Delegate Task" : "Create Task"}</Button></div></DialogFooter>
         </DialogContent>

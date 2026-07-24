@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { todayIST } from "@/lib/date"
+import { AT_WORK_STATUSES } from "@/lib/attendance"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
@@ -15,7 +16,8 @@ export async function GET() {
     prisma.employee.count({ where: { status: "onLeave" } }),
     prisma.leaveRequest.count({ where: { status: "pending" } }),
     prisma.attendance.findMany({
-      where: { date: today, status: { in: ["present", "remote"] } },
+      // "late" is still present at work — count it alongside present/remote.
+      where: { date: today, status: { in: [...AT_WORK_STATUSES] } },
     }),
   ])
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { isPresent } from "@/lib/attendance"
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
     "",
     `Total Work Hours,${records.reduce((s, r) => s + r.workHours, 0).toFixed(2)}`,
     `Total Overtime,${records.reduce((s, r) => s + r.overtime, 0).toFixed(2)}`,
-    `Days Present,${records.filter((r) => r.status === "present").length}`,
+    `Days Present,${records.filter((r) => isPresent(r.status)).length}`,
     `Days Absent,${lastDay - records.length}`,
   ]
 

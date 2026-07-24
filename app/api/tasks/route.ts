@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
   }
-  const { title, description, priority, dueDate, projectId, stage } = parsed.data
+  const { title, description, priority, dueDate, projectId, stage, estimatedHours } = parsed.data
 
   // Flow 1 (Admin -> Manager -> Employee): a delegated task is created by an
   // admin and routed through a manager, who later reassigns it to an employee.
@@ -252,6 +252,7 @@ export async function POST(req: NextRequest) {
       priority: priority ?? "medium",
       stage: stage?.trim() || project.stages[0] || "Unstaged Tasks",
       dueDate: dueDate ?? null,
+      estimatedHours: estimatedHours ?? null,
       collaborators: collaboratorIds,
     },
   })

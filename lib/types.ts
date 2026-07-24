@@ -97,6 +97,8 @@ export interface Task {
   status: TaskStatus
   stage?: string | null
   dueDate?: string | null
+  /** Allocated working hours for the countdown (office hours, Sundays excluded). */
+  estimatedHours?: number | null
   collaborators?: string[]
   commentCount?: number
   createdAt: string

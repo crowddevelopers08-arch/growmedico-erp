@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef } from "react"
 import { toDateStr, todayIST } from "@/lib/date"
+import { isAtWork } from "@/lib/attendance"
 import {
   Clock,
   CalendarDays,
@@ -125,7 +126,7 @@ function MyPortalContent() {
   const monthlyAttendance = getAttendanceByEmployee(CURRENT_EMPLOYEE_ID).filter(
     a => a.date.startsWith(thisMonth)
   )
-  const presentDays = monthlyAttendance.filter(a => a.status === "present" || a.status === "remote").length
+  const presentDays = monthlyAttendance.filter(a => isAtWork(a.status)).length
   const totalWorkHours = monthlyAttendance.reduce((sum, a) => sum + a.workHours, 0)
   const totalOvertime = monthlyAttendance.reduce((sum, a) => sum + a.overtime, 0)
 

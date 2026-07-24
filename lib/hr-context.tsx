@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import { todayIST } from "@/lib/date"
+import { isAtWork } from "@/lib/attendance"
 import type { Employee, Attendance, LeaveRequest, SalaryRecord, Activity, LeaveStatus } from "./types"
 
 interface HRContextType {
@@ -231,7 +232,7 @@ export function HRProvider({ children }: { children: ReactNode }) {
 
     return {
       totalEmployees: employees.length,
-      presentToday: todayAttendance.filter((a) => a.status === "present" || a.status === "remote").length,
+      presentToday: todayAttendance.filter((a) => isAtWork(a.status)).length,
       onLeave: employees.filter((e) => e.status === "onLeave").length,
       pendingRequests: leaveRequests.filter((r) => r.status === "pending").length,
     }

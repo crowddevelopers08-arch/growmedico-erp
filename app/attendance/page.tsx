@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { to12h, toDateStr, todayIST } from "@/lib/date"
+import { isPresent, isAtWork } from "@/lib/attendance"
 import { CalendarIcon, Clock, LogIn, LogOut, Search, ChevronLeft, ChevronRight, Users, ImageOff, Download, BarChart2, Pencil } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -138,7 +139,7 @@ function AttendancePageContent() {
   }, [monthlyReportEmployeeId, reportMonth, getAttendanceByEmployee])
 
   const monthlyStats = useMemo(() => {
-    const present = monthlyReportRecords.filter((r) => r.record?.status === "present" || r.record?.status === "remote").length
+    const present = monthlyReportRecords.filter((r) => isAtWork(r.record?.status)).length
     const absent = monthlyReportRecords.filter((r) => !r.record || r.record.status === "absent").length
     const onLeave = monthlyReportRecords.filter((r) => r.record?.status === "onLeave").length
     const totalHours = monthlyReportRecords.reduce((s, r) => s + (r.record?.workHours ?? 0), 0)
@@ -179,7 +180,7 @@ function AttendancePageContent() {
 
   const stats = useMemo(() => {
     const records = attendanceForDate
-    const present = records.filter((r) => r.attendance?.status === "present").length
+    const present = records.filter((r) => isPresent(r.attendance?.status)).length
     const remote = records.filter((r) => r.attendance?.status === "remote").length
     const absent = records.filter((r) => !r.attendance || r.attendance.status === "absent").length
     const onLeave = records.filter((r) => r.attendance?.status === "onLeave").length

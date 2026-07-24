@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import { toDateStr } from "@/lib/date"
+import { isPresent } from "@/lib/attendance"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardAction, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,7 +38,7 @@ export function DashboardAttendanceChart() {
       const dayName = date.toLocaleDateString("en-US", { weekday: "short" })
       
       const dayAttendance = attendance.filter((a) => a.date === dateStr)
-      const present = dayAttendance.filter((a) => a.status === "present").length
+      const present = dayAttendance.filter((a) => isPresent(a.status)).length
       const remote = dayAttendance.filter((a) => a.status === "remote").length
       const absent = employees.length - present - remote
       

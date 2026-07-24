@@ -95,6 +95,12 @@ export const taskCreateSchema = z.object({
   status: z.enum(taskStatuses).optional(),
   stage: z.string().trim().optional().nullable(),
   dueDate: z.string().trim().optional().nullable(),
+  estimatedHours: z.coerce
+    .number()
+    .positive("Estimated hours must be greater than 0")
+    .max(2000, "Estimated hours is too large")
+    .optional()
+    .nullable(),
 })
 
 export const taskUpdateSchema = taskCreateSchema.partial()

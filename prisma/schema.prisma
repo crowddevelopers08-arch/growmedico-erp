@@ -165,6 +165,9 @@ model Task {
   status       String         @default("pending")
   stage        String         @default("Unstaged Tasks")
   dueDate       String?
+  // Time-allocation countdown: estimated working hours (10:00-19:00 IST,
+  // Sundays excluded). The countdown runs from createdAt.
+  estimatedHours Float?
   collaborators String[]       @default([])
   attachments   Json?
   comments      TaskComment[]

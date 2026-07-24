@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { toDateStr, todayIST } from "@/lib/date"
 import { canManageDelivery } from "@/lib/permissions"
+import { WorkingTimeBadge } from "@/components/working-time-badge"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog"
@@ -140,6 +141,7 @@ function TasksPageContent() {
   const [formManagerId, setFormManagerId] = useState("")
   const [formPriority, setFormPriority] = useState<TaskPriority>("medium")
   const [formDueDate, setFormDueDate] = useState("")
+  const [formEstimatedHours, setFormEstimatedHours] = useState("")
 
   const selectedFormProject = useMemo(
     () => projects.find((project) => project.id === formProjectId) ?? null,
@@ -198,6 +200,7 @@ function TasksPageContent() {
     setFormManagerId("")
     setFormPriority("medium")
     setFormDueDate("")
+    setFormEstimatedHours("")
     setDialogOpen(true)
   }
 
@@ -214,6 +217,7 @@ function TasksPageContent() {
     setFormManagerId("")
     setFormPriority(task.priority)
     setFormDueDate(task.dueDate ?? "")
+    setFormEstimatedHours(task.estimatedHours != null ? String(task.estimatedHours) : "")
     setDialogOpen(true)
   }
 
@@ -272,6 +276,8 @@ function TasksPageContent() {
       return
     }
 
+    const estimatedHours = formEstimatedHours ? Number(formEstimatedHours) : null
+
     const parsed = taskCreateSchema.safeParse({
       title: formTitle.trim(),
       description: formDesc.trim() || null,
@@ -281,6 +287,7 @@ function TasksPageContent() {
       collaborators: delegating ? [] : formCollaboratorIds,
       priority: formPriority,
       dueDate: formDueDate || null,
+      estimatedHours,
     })
     if (!parsed.success) {
       toast.error(firstIssueMessage(parsed.error))
@@ -302,6 +309,7 @@ function TasksPageContent() {
             managerId: formManagerId,
             priority: formPriority,
             dueDate: formDueDate || null,
+            estimatedHours,
           }),
         })
         if (!res.ok) throw new Error((await res.json()).error)
@@ -320,6 +328,7 @@ function TasksPageContent() {
           collaborators: formCollaboratorIds,
           priority: formPriority,
           dueDate: formDueDate || null,
+          estimatedHours,
         }
         const res = await fetch(`/api/tasks/${editTask.id}`, {
           method: "PATCH",
@@ -338,6 +347,7 @@ function TasksPageContent() {
             collaborators: formCollaboratorIds,
             priority: formPriority,
             dueDate: formDueDate || null,
+            estimatedHours,
           }
           const res = await fetch("/api/tasks", {
             method: "POST",
@@ -796,6 +806,7 @@ function TasksPageContent() {
                         <PriorityBadge priority={task.priority} />
                         <StatusBadge status={task.status} />
                         {overdue && <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
+                        <WorkingTimeBadge task={task} />
                       </div>
 
                       {task.description && <p className="text-xs text-muted-foreground line-clamp-1 mb-1">{task.description}</p>}
@@ -1041,6 +1052,19 @@ function TasksPageContent() {
                 <Label>Due Date</Label>
                 <Input type="date" value={formDueDate} onChange={(e) => setFormDueDate(e.target.value)} />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Time Allocation (working hours)</Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="e.g. 48"
+                value={formEstimatedHours}
+                onChange={(e) => setFormEstimatedHours(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))}
+              />
+              <p className="text-xs text-muted-foreground">
+                Countdown starts on assignment. Counts office hours only (10:00 AM–7:00 PM, Sundays excluded).
+              </p>
             </div>
           </div>
           <DialogFooter>

@@ -116,6 +116,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         status: body.status,
         stage: body.stage,
         dueDate: body.dueDate,
+        estimatedHours: body.estimatedHours,
         assignedToId: body.assignedToId,
         projectId: body.projectId,
         collaborators: collaboratorIds,
@@ -127,6 +128,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         priority: body.priority,
         status: body.status,
         dueDate: body.dueDate,
+        estimatedHours: body.estimatedHours,
       }
     : { status: body.status }
 
