@@ -251,22 +251,32 @@ export function TaskDetailSheet({
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="@container w-full sm:max-w-lg lg:max-w-2xl flex flex-col p-0 gap-0">
+          {/* Edit sits beside the sheet's own close button (which is pinned at
+              top-4 right-4) instead of inside the title row, where the two
+              controls overlapped each other. */}
+          {isAdmin && onEditTask && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-14 z-10 size-8"
+              onClick={() => onEditTask(task)}
+              title="Edit task"
+            >
+              <Pencil className="size-4" />
+              <span className="sr-only">Edit task</span>
+            </Button>
+          )}
+
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/50">
-            <div className="flex items-start gap-3">
+            {/* Keep the title clear of the close/edit controls above it. */}
+            <div className={cn("flex items-start gap-3", isAdmin && onEditTask ? "pr-20" : "pr-10")}>
               <div className={`mt-1 size-2.5 rounded-full shrink-0 ${
                 task.priority === "urgent" ? "bg-destructive" :
                 task.priority === "high" ? "bg-warning" :
                 task.priority === "medium" ? "bg-info" : "bg-muted-foreground"
               }`} />
               <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <SheetTitle className="text-base font-semibold leading-snug">{task.title}</SheetTitle>
-                  {isAdmin && onEditTask && (
-                    <Button variant="ghost" size="icon" className="size-7 shrink-0 -mt-0.5" onClick={() => onEditTask(task)} title="Edit task">
-                      <Pencil className="size-3.5" />
-                    </Button>
-                  )}
-                </div>
+                <SheetTitle className="text-base font-semibold leading-snug">{task.title}</SheetTitle>
                 {task.description && <SheetDescription className="mt-1 text-sm">{task.description}</SheetDescription>}
               </div>
             </div>

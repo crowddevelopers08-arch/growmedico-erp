@@ -416,7 +416,7 @@ function SalaryPageContent() {
                 </Avatar>
                 <div>
                   <p className="font-medium">{selectedEmployee.name}</p>
-                  <p className="text-sm text-muted-foreground">{selectedEmployee.department} - {selectedEmployee.role}</p>
+                  <p className="text-sm text-muted-foreground">{[selectedEmployee.department, selectedEmployee.role].filter(Boolean).join(" - ")}</p>
                 </div>
               </div>
               

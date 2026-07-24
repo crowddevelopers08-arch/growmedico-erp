@@ -1,9 +1,15 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
-import { todayIST } from "@/lib/date"
-import { isAtWork } from "@/lib/attendance"
-import type { Employee, Attendance, LeaveRequest, SalaryRecord, Activity, LeaveStatus } from "./types"
+import type {
+  Employee,
+  EmployeeStatus,
+  Attendance,
+  LeaveRequest,
+  SalaryRecord,
+  Activity,
+  LeaveStatus,
+} from "./types"
 
 interface HRContextType {
   // Employees
@@ -46,7 +52,9 @@ interface HRContextType {
   getStats: () => {
     totalEmployees: number
     presentToday: number
+    remoteToday: number
     onLeave: number
+    absentToday: number
     pendingRequests: number
   }
 
@@ -227,16 +235,22 @@ export function HRProvider({ children }: { children: ReactNode }) {
   }, [salaryRecords])
 
   const getStats = useCallback(() => {
-    const today = todayIST()
-    const todayAttendance = attendance.filter((a) => a.date === today)
+    // Count the live status the /api/employees payload already resolved, so the
+    // dashboard cards can never disagree with the employees page. Counting
+    // attendance rows here instead used to show people as present on the
+    // dashboard while the employees page listed them as on leave.
+    const countStatus = (status: EmployeeStatus) => employees.filter((e) => e.status === status).length
 
     return {
       totalEmployees: employees.length,
-      presentToday: todayAttendance.filter((a) => isAtWork(a.status)).length,
-      onLeave: employees.filter((e) => e.status === "onLeave").length,
+      // At work today: onsite (present/late) or working remotely.
+      presentToday: countStatus("present") + countStatus("remote"),
+      remoteToday: countStatus("remote"),
+      onLeave: countStatus("onLeave"),
+      absentToday: countStatus("absent"),
       pendingRequests: leaveRequests.filter((r) => r.status === "pending").length,
     }
-  }, [employees, attendance, leaveRequests])
+  }, [employees, leaveRequests])
 
   return (
     <HRContext.Provider

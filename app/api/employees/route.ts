@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { todayIST } from "@/lib/date"
+import { isFullDayLeave, resolveLiveStatus } from "@/lib/employee-status"
 import { employeeCreateSchema, firstIssueMessage } from "@/lib/validations"
 
 export async function GET() {
@@ -33,34 +34,21 @@ export async function GET() {
         startDate: { lte: today },
         endDate: { gte: today },
       },
-      select: { employeeId: true },
+      select: { employeeId: true, type: true },
     }),
   ])
 
   const attendanceByEmployee = new Map(todayAttendance.map((a) => [a.employeeId, a.status]))
-  const leaveEmployeeIds = new Set(approvedLeavesToday.map((l) => l.employeeId))
+  const leaveEmployeeIds = new Set(
+    approvedLeavesToday.filter((l) => isFullDayLeave(l.type)).map((l) => l.employeeId)
+  )
 
   const employeesWithLiveStatus = employees.map((employee) => {
     const { user, ...employeeData } = employee
     const accountRole = employee.user?.role ?? "EMPLOYEE"
+    const status = resolveLiveStatus(attendanceByEmployee.get(employee.id), leaveEmployeeIds.has(employee.id))
 
-    if (leaveEmployeeIds.has(employee.id)) {
-      return { ...employeeData, accountRole, status: "onLeave" as const }
-    }
-
-    const attendanceStatus = attendanceByEmployee.get(employee.id)
-    if (attendanceStatus === "remote") {
-      return { ...employeeData, accountRole, status: "remote" as const }
-    }
-    if (attendanceStatus === "present" || attendanceStatus === "late") {
-      return { ...employeeData, accountRole, status: "present" as const }
-    }
-    if (attendanceStatus === "absent") {
-      return { ...employeeData, accountRole, status: "absent" as const }
-    }
-
-    // No attendance record for today means absent for today's employee view.
-    return { ...employeeData, accountRole, status: "absent" as const }
+    return { ...employeeData, accountRole, status }
   })
 
   return NextResponse.json(employeesWithLiveStatus)

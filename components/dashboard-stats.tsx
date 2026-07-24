@@ -29,7 +29,9 @@ export function DashboardStats() {
       change: `${attendanceRate}%`,
       changeType: "positive" as const,
       icon: Clock,
-      description: "attendance rate",
+      // Spell out the rest of the headcount — present + on leave rarely adds up
+      // to the total, and the gap (absent) had nowhere to show.
+      description: `attendance rate · ${stats.absentToday} absent`,
       href: "/attendance",
     },
     {

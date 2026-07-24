@@ -72,7 +72,9 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
+        {/* Sized like a ghost icon button so it has a real tap target and lines
+            up with any header actions a sheet places beside it. */}
+        <SheetPrimitive.Close className="ring-offset-background focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground absolute top-4 right-4 inline-flex size-8 items-center justify-center rounded-md opacity-70 transition-[opacity,background-color,color] hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none">
           <XIcon className="size-4" />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>

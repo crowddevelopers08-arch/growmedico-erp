@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { todayIST } from "@/lib/date"
+import { isFullDayLeave, resolveLiveStatus } from "@/lib/employee-status"
 
 // Team directory: every login grouped by account role. Built from the User
 // table (left-joined to Employee) so that admin/manager logins without an
@@ -39,20 +40,18 @@ export async function GET() {
     }),
     prisma.leaveRequest.findMany({
       where: { status: "approved", startDate: { lte: today }, endDate: { gte: today } },
-      select: { employeeId: true },
+      select: { employeeId: true, type: true },
     }),
   ])
 
   const attendanceByEmployee = new Map(todayAttendance.map((a) => [a.employeeId, a.status]))
-  const leaveEmployeeIds = new Set(approvedLeavesToday.map((l) => l.employeeId))
+  const leaveEmployeeIds = new Set(
+    approvedLeavesToday.filter((l) => isFullDayLeave(l.type)).map((l) => l.employeeId)
+  )
 
   const resolveStatus = (employeeId: string | undefined): string | null => {
     if (!employeeId) return null
-    if (leaveEmployeeIds.has(employeeId)) return "onLeave"
-    const attendanceStatus = attendanceByEmployee.get(employeeId)
-    if (attendanceStatus === "remote") return "remote"
-    if (attendanceStatus === "present" || attendanceStatus === "late") return "present"
-    return "absent"
+    return resolveLiveStatus(attendanceByEmployee.get(employeeId), leaveEmployeeIds.has(employeeId))
   }
 
   const initialsFromName = (value: string) =>

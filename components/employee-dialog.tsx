@@ -89,7 +89,7 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
         email: employee.email,
         phone: employee.phone,
         department: employee.department,
-        role: employee.role,
+        role: employee.role ?? "",
         accountRole: employee.accountRole ?? "EMPLOYEE",
         status: employee.status,
         salary: employee.salary,
@@ -253,6 +253,20 @@ export function EmployeeDialog({ open, onOpenChange, employee, mode }: EmployeeD
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Job Role</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Senior Media Buyer (optional)" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField

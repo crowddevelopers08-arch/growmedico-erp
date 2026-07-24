@@ -112,6 +112,13 @@ function EmployeesPageContent() {
     return result
   }, [employees, searchQuery, selectedDepartments, sortField, sortDirection])
 
+  const statusCounts = useMemo(() => ({
+    present: employees.filter((e) => e.status === "present").length,
+    remote: employees.filter((e) => e.status === "remote").length,
+    onLeave: employees.filter((e) => e.status === "onLeave").length,
+    absent: employees.filter((e) => e.status === "absent").length,
+  }), [employees])
+
   const handleSort = (field: "name" | "department" | "joinDate") => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
@@ -178,8 +185,9 @@ function EmployeesPageContent() {
         )}
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
+      {/* Stats — present + remote + on leave + absent always adds up to the
+          total, so no one goes unaccounted for. */}
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         <Card className="border-border/50">
           <CardContent className="pt-6">
             <div className="text-2xl font-semibold">{employees.length}</div>
@@ -188,26 +196,26 @@ function EmployeesPageContent() {
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <div className="text-2xl font-semibold text-success">
-              {employees.filter((e) => e.status === "present").length}
-            </div>
+            <div className="text-2xl font-semibold text-success">{statusCounts.present}</div>
             <p className="text-sm text-muted-foreground">Present Today</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <div className="text-2xl font-semibold text-chart-1">
-              {employees.filter((e) => e.status === "remote").length}
-            </div>
+            <div className="text-2xl font-semibold text-chart-1">{statusCounts.remote}</div>
             <p className="text-sm text-muted-foreground">Working Remote</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <div className="text-2xl font-semibold text-warning">
-              {employees.filter((e) => e.status === "onLeave").length}
-            </div>
+            <div className="text-2xl font-semibold text-warning">{statusCounts.onLeave}</div>
             <p className="text-sm text-muted-foreground">On Leave</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50">
+          <CardContent className="pt-6">
+            <div className="text-2xl font-semibold text-destructive">{statusCounts.absent}</div>
+            <p className="text-sm text-muted-foreground">Absent</p>
           </CardContent>
         </Card>
       </div>
@@ -345,7 +353,8 @@ function EmployeesPageContent() {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{employee.department}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{employee.department}</TableCell>
+                    {/* Job role (designation), not the department again. */}
+                    <TableCell className="text-sm text-muted-foreground">{employee.role || "—"}</TableCell>
                     <TableCell>{getStatusBadge(employee.status)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(employee.joinDate)}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
