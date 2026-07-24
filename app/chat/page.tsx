@@ -57,7 +57,7 @@ function renderContent(content: string, users: MentionUser[]) {
       const user = users.find((u) => u.userId === match[1])
       const fallbackName = match[2]
       return (
-        <span key={i} className="rounded bg-primary/10 px-0.5 text-xs font-medium text-primary">
+        <span key={i} className="rounded bg-warning/15 px-0.5 text-xs font-medium text-warning">
           @{user?.name ?? fallbackName ?? "Unknown"}
         </span>
       )
@@ -103,7 +103,7 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
             style={{ width: duration > 0 ? `${(current / duration) * 100}%` : "0%" }}
           />
         </div>
-        <span className="text-[10px] opacity-60 tabular-nums mt-0.5 block">
+        <span className="text-tiny opacity-60 tabular-nums mt-0.5 block">
           {duration > 0
             ? `${Math.floor((duration - current) / 60).toString().padStart(2, "0")}:${Math.floor((duration - current) % 60).toString().padStart(2, "0")}`
             : "0:00"}
@@ -154,11 +154,11 @@ function GroupAvatar({ members }: { members: { userId: string; name: string; ava
         <>
           <Avatar className="absolute bottom-0 left-0 size-7 border-2 border-background">
             <AvatarImage src={shown[0].avatar ?? undefined} />
-            <AvatarFallback className="bg-primary/15 text-[9px] text-primary">{shown[0].name.slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="bg-primary/15 text-tiny text-primary">{shown[0].name.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <Avatar className="absolute top-0 right-0 size-7 border-2 border-background">
             <AvatarImage src={shown[1].avatar ?? undefined} />
-            <AvatarFallback className="bg-secondary/20 text-[9px] text-secondary">{shown[1].name.slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="bg-secondary/20 text-tiny text-secondary">{shown[1].name.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
         </>
       )}
@@ -262,6 +262,22 @@ function ChatPageContent() {
     () => mentionUsers.filter((user) => user.userId !== currentUserId),
     [currentUserId, mentionUsers]
   )
+
+  // Who the composer can @-mention. A one-to-one chat has no one to
+  // disambiguate, so it gets an empty list (which turns the picker off
+  // entirely); a group DM offers exactly its own members, never the whole org.
+  const composerMentionUsers = useMemo<MentionUser[]>(() => {
+    if (selectedChannel?.kind !== "group_dm") return []
+    return (selectedChannel.groupMembers ?? [])
+      .filter((member) => member.userId !== currentUserId)
+      .map((member) =>
+        mentionUsers.find((user) => user.userId === member.userId) ?? {
+          userId: member.userId,
+          name: member.name,
+          avatar: member.avatar,
+        }
+      )
+  }, [currentUserId, mentionUsers, selectedChannel])
 
   const directChannelByPeerId = useMemo(
     () => new Map(channels.filter((ch) => ch.kind === "direct" && ch.peerUserId).map((ch) => [ch.peerUserId as string, ch])),
@@ -539,7 +555,7 @@ function ChatPageContent() {
           {filteredGroupDms.length > 0 && (
             <>
               <div className="px-4 pt-3 pb-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Groups</span>
+                <span className="text-tiny font-semibold uppercase tracking-wider text-muted-foreground">Groups</span>
               </div>
               {filteredGroupDms.map((ch) => {
                 const isSelected = selectedChannel?.id === ch.id
@@ -559,7 +575,7 @@ function ChatPageContent() {
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium text-sm text-foreground truncate">{ch.groupTitle ?? ch.name}</span>
                         {(ch.unreadCount ?? 0) > 0 && (
-                          <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                          <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-tiny font-semibold text-primary-foreground">
                             {ch.unreadCount}
                           </span>
                         )}
@@ -577,7 +593,7 @@ function ChatPageContent() {
           {/* Direct contacts section */}
           {(filteredGroupDms.length > 0 || filteredContacts.length > 0) && (
             <div className="px-4 pt-3 pb-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">People</span>
+              <span className="text-tiny font-semibold uppercase tracking-wider text-muted-foreground">People</span>
             </div>
           )}
           {filteredContacts.length === 0 && filteredGroupDms.length === 0 ? (
@@ -608,11 +624,11 @@ function ChatPageContent() {
                       <span className="font-medium text-sm text-foreground truncate">{user.name}</span>
                       <div className="flex items-center gap-1">
                         {(directChannel?.unreadCount ?? 0) > 0 && (
-                          <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                          <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-tiny font-semibold text-primary-foreground">
                             {directChannel?.unreadCount}
                           </span>
                         )}
-                        {openingDirectId === user.userId && <span className="text-[10px] text-muted-foreground">Opening...</span>}
+                        {openingDirectId === user.userId && <span className="text-tiny text-muted-foreground">Opening...</span>}
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
@@ -629,13 +645,13 @@ function ChatPageContent() {
           <div className="flex items-center gap-2.5">
             <Avatar className="size-8">
               <AvatarImage src={session?.user?.image ?? undefined} />
-              <AvatarFallback className="bg-primary/15 text-[10px] text-primary">
+              <AvatarFallback className="bg-primary/15 text-tiny text-primary">
                 {session?.user?.name?.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
               <p className="text-xs font-semibold truncate">{session?.user?.name}</p>
-              <p className="text-[10px] text-muted-foreground">{roleLabel}</p>
+              <p className="text-tiny text-muted-foreground">{roleLabel}</p>
             </div>
           </div>
         </div>
@@ -700,7 +716,7 @@ function ChatPageContent() {
                       <div key={msg.id}>
                         {msg.showDateSeparator && (
                           <div className="flex justify-center my-4">
-                            <span className="rounded-full bg-card px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
+                            <span className="rounded-full bg-card px-3 py-1 text-tiny font-medium text-muted-foreground shadow-sm">
                               {formatDateSeparator(msg.createdAt)}
                             </span>
                           </div>
@@ -770,9 +786,9 @@ function ChatPageContent() {
                                   {msg.audioContent && <AudioPlayer src={msg.audioContent} isMine={isMine} />}
                                   {attachments.length > 0 && <div className="flex flex-wrap gap-2">{attachments.map((att, i) => <AttachmentChip key={i} att={att} isMine={isMine} />)}</div>}
                                   <div className="flex items-center justify-end gap-1 -mb-0.5">
-                                    {msg.editedAt && <span className={cn("text-[10px] italic", isMine ? "text-primary-foreground/75" : "text-muted-foreground")}>edited</span>}
-                                    {isMine && <span className="text-[10px] text-primary-foreground/90">{readByOthers ? "Read" : "Sent"}</span>}
-                                    <span className={cn("text-[10px]", isMine ? "text-primary-foreground/90" : "text-muted-foreground")}>{formatTime(msg.createdAt)}</span>
+                                    {msg.editedAt && <span className={cn("text-tiny italic", isMine ? "text-primary-foreground/75" : "text-muted-foreground")}>edited</span>}
+                                    {isMine && <span className="text-tiny text-primary-foreground/90">{readByOthers ? "Read" : "Sent"}</span>}
+                                    <span className={cn("text-tiny", isMine ? "text-primary-foreground/90" : "text-muted-foreground")}>{formatTime(msg.createdAt)}</span>
                                     {getTick(msg)}
                                   </div>
                                 </div>
@@ -791,7 +807,7 @@ function ChatPageContent() {
             <div className="shrink-0 border-t bg-card px-2 py-2 sm:px-3">
               <ChatInput
                 placeholder={`Message ${selectedChannel.groupTitle ?? selectedChannel.name}`}
-                users={mentionUsers}
+                users={composerMentionUsers}
                 onSend={async (data) => {
                   try {
                     await handleSend(data)
@@ -852,7 +868,7 @@ function ChatPageContent() {
 
                 {/* Current members */}
                 <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Members</p>
+                  <p className="text-tiny font-semibold uppercase tracking-wider text-muted-foreground px-1">Members</p>
                   <ScrollArea className="max-h-44 rounded-md border">
                     <div className="p-1">
                       {members.map((member) => {
@@ -869,7 +885,7 @@ function ChatPageContent() {
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{member.name}</p>
-                              <p className="text-[10px] text-muted-foreground">
+                              <p className="text-tiny text-muted-foreground">
                                 {isCreator ? "Creator" : isMe ? "You" : ""}
                               </p>
                             </div>
@@ -894,7 +910,7 @@ function ChatPageContent() {
 
                 {/* Add people section */}
                 <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-1">Add People</p>
+                  <p className="text-tiny font-semibold uppercase tracking-wider text-muted-foreground px-1">Add People</p>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -940,7 +956,7 @@ function ChatPageContent() {
                             >
                               <Avatar className="size-7 shrink-0">
                                 <AvatarImage src={user.avatar ?? undefined} />
-                                <AvatarFallback className="bg-primary/15 text-[9px] text-primary">{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                <AvatarFallback className="bg-primary/15 text-tiny text-primary">{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                               </Avatar>
                               <span className="flex-1 text-sm truncate">{user.name}</span>
                               {isStaged && <Check className="size-3.5 text-primary shrink-0" />}
@@ -1073,7 +1089,7 @@ function ChatPageContent() {
                         >
                           <Avatar className="size-7 shrink-0">
                             <AvatarImage src={user.avatar ?? undefined} />
-                            <AvatarFallback className="bg-primary/15 text-[9px] text-primary">
+                            <AvatarFallback className="bg-primary/15 text-tiny text-primary">
                               {user.name.slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>

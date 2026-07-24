@@ -140,6 +140,8 @@ export interface Channel {
   peerAvatar?: string | null
   groupTitle?: string | null
   groupMembers?: { userId: string; name: string; avatar?: string | null }[]
+  /** Group channels only: who can see it. Empty means open to everyone. */
+  memberIds?: string[]
   unreadCount?: number
   lastMessageAt?: string | null
   lastMessagePreview?: string | null

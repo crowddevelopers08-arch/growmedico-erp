@@ -63,7 +63,7 @@ export function DashboardStats() {
               <ArrowUpRight className="absolute right-4 top-4 size-4 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                  <p className="text-2sm font-medium text-muted-foreground">{stat.title}</p>
                   <div className="flex items-baseline gap-2">
                     <p className="text-3xl font-semibold tracking-tight text-foreground">{stat.value}</p>
                     <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${

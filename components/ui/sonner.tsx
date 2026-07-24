@@ -10,6 +10,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps['theme']}
       className="toaster group"
+      // Toast title 14px, message 13px — per the product type scale.
+      toastOptions={{
+        classNames: {
+          title: 'text-sm font-medium',
+          description: 'text-2sm',
+        },
+      }}
       style={
         {
           '--normal-bg': 'var(--popover)',

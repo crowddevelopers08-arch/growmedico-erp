@@ -86,14 +86,14 @@ function projectLabel(task: Task) {
 
 function PriorityBadge({ priority }: { priority: TaskPriority }) {
   const cfg = priorityConfig[priority]
-  return <Badge variant="outline" className={`text-xs ${cfg.class}`}>{cfg.label}</Badge>
+  return <Badge variant="outline" className={cfg.class}>{cfg.label}</Badge>
 }
 
 function StatusBadge({ status }: { status: TaskStatus }) {
   const cfg = statusConfig[status]
   const Icon = cfg.icon
   return (
-    <Badge variant="outline" className={`text-xs gap-1 ${cfg.class}`}>
+    <Badge variant="outline" className={`gap-1 ${cfg.class}`}>
       <Icon className="size-3" />{cfg.label}
     </Badge>
   )
@@ -532,7 +532,7 @@ function TasksPageContent() {
   return (
     <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
       <aside className="h-fit rounded-xl border border-border/50 bg-card p-2 lg:sticky lg:top-4">
-        <p className="px-2 pb-2 pt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">List</p>
+        <p className="px-2 pb-2 pt-1 text-sm font-medium uppercase tracking-wider text-muted-foreground">List</p>
         <div className="space-y-1">
           {listViews.map((view) => {
             const Icon = view.icon
@@ -543,14 +543,14 @@ function TasksPageContent() {
                 key={view.id}
                 type="button"
                 onClick={() => router.push(view.id === "all" ? "/tasks" : `/tasks?list=${view.id}`)}
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer ${
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-base transition-colors cursor-pointer ${
                   active ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 }`}
               >
                 <Icon className="size-4 shrink-0" />
                 <span className="flex-1 text-left truncate">{view.label}</span>
                 {count > 0 && (
-                  <span className={`grid min-w-5 place-items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  <span className={`grid min-w-5 place-items-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                     active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                   }`}>
                     {count > 99 ? "99+" : count}
@@ -565,8 +565,8 @@ function TasksPageContent() {
       <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{listHeadings[activeList].title}</h1>
-          <p className="text-sm text-muted-foreground">{listHeadings[activeList].subtitle}</p>
+          <h1 className="text-3xl font-bold tracking-tight">{listHeadings[activeList].title}</h1>
+          <p className="text-base text-muted-foreground">{listHeadings[activeList].subtitle}</p>
         </div>
         {(canManageTasks || activeList === "self") && (
           <div className="flex gap-2 sm:shrink-0">
@@ -589,8 +589,8 @@ function TasksPageContent() {
                     <Icon className={`size-4 ${cfg.class.split(" ").find((c) => c.startsWith("text-"))}`} />
                   </div>
                   <div>
-                    <p className="text-xl font-bold">{counts[status]}</p>
-                    <p className="text-xs text-muted-foreground">{cfg.label}</p>
+                    <p className="text-stat font-bold">{counts[status]}</p>
+                    <p className="text-2sm text-muted-foreground">{cfg.label}</p>
                   </div>
                 </div>
               </CardContent>
@@ -603,7 +603,7 @@ function TasksPageContent() {
         <CardHeader className="pb-4">
           <div className="flex flex-col gap-3">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TaskStatus | "all")}>
-              <TabsList>
+              <TabsList className="h-10 [&_button]:text-base">
                 <TabsTrigger value="all">All ({counts.all})</TabsTrigger>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
                 <TabsTrigger value="in_progress">In Progress</TabsTrigger>
@@ -618,7 +618,7 @@ function TasksPageContent() {
                   placeholder="Search title, client, project, assignee..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="h-10 pl-9 md:text-base"
                 />
               </div>
               {canManageTasks && (
@@ -630,7 +630,7 @@ function TasksPageContent() {
                     setSelectedEmployeeId(null)
                   }}
                 >
-                  <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectTrigger className="w-full text-base data-[size=default]:h-10 sm:w-[180px]">
                     <SelectValue placeholder="All roles" />
                   </SelectTrigger>
                   <SelectContent>
@@ -642,7 +642,7 @@ function TasksPageContent() {
                 </Select>
               )}
               <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectTrigger className="w-full text-base data-[size=default]:h-10 sm:w-[200px]">
                   <SelectValue placeholder="All client projects" />
                 </SelectTrigger>
                 <SelectContent>
@@ -653,7 +653,7 @@ function TasksPageContent() {
                 </SelectContent>
               </Select>
               <Select value={dueFilter} onValueChange={(value) => setDueFilter(value as DueFilter)}>
-                <SelectTrigger className="w-full sm:w-[160px]">
+                <SelectTrigger className="w-full text-base data-[size=default]:h-10 sm:w-[160px]">
                   <SelectValue placeholder="All dates" />
                 </SelectTrigger>
                 <SelectContent>
@@ -662,7 +662,7 @@ function TasksPageContent() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="text-xs text-muted-foreground flex items-center sm:ml-auto whitespace-nowrap">
+              <div className="text-sm text-muted-foreground flex items-center sm:ml-auto whitespace-nowrap">
                 {projects.length > 0
                   ? `${projects.length} client project${projects.length === 1 ? "" : "s"}`
                   : "No client projects yet"}
@@ -673,7 +673,7 @@ function TasksPageContent() {
             {dueFilter === "custom" && (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground whitespace-nowrap">Due from</Label>
+                  <Label className="text-sm text-muted-foreground whitespace-nowrap">Due from</Label>
                   <Input
                     type="date"
                     value={dueFrom}
@@ -683,7 +683,7 @@ function TasksPageContent() {
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs text-muted-foreground whitespace-nowrap">to</Label>
+                  <Label className="text-sm text-muted-foreground whitespace-nowrap">to</Label>
                   <Input
                     type="date"
                     value={dueTo}
@@ -707,11 +707,11 @@ function TasksPageContent() {
 
             {/* Drill-down breadcrumb once a person is selected */}
             {selectedEmployee && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-base">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 gap-1 px-2 text-muted-foreground"
+                  className="h-8 gap-1 px-2 text-base text-muted-foreground"
                   onClick={() => setSelectedEmployeeId(null)}
                 >
                   <ChevronLeft className="size-4" />
@@ -726,13 +726,13 @@ function TasksPageContent() {
 
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">Loading tasks...</div>
+            <div className="flex items-center justify-center h-32 text-muted-foreground text-base">Loading tasks...</div>
           ) : showRoster ? (
             // Step 1 of the drill-down: everyone in the chosen department.
             departmentRoster.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
                 <Users className="size-8 opacity-40" />
-                <p className="text-sm">No one in {selectedDepartment}</p>
+                <p className="text-base">No one in {selectedDepartment}</p>
               </div>
             ) : (
               <div className="divide-y divide-border/50">
@@ -742,27 +742,27 @@ function TasksPageContent() {
                     className="flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors cursor-pointer"
                     onClick={() => setSelectedEmployeeId(employee.id)}
                   >
-                    <Avatar className="size-9">
+                    <Avatar className="size-10">
                       <AvatarImage src={employee.avatar} alt={employee.name} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
                         {employee.initials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{employee.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{employee.role || employee.department}</p>
+                      <p className="text-base font-medium">{employee.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">{employee.role || employee.department}</p>
                     </div>
                     <div className="flex items-center gap-1.5">
                       {pending > 0 && (
-                        <Badge variant="secondary" className="border-0 bg-warning/10 text-warning text-xs">{pending} pending</Badge>
+                        <Badge variant="secondary" className="border-0 bg-warning/10 text-warning ">{pending} pending</Badge>
                       )}
                       {inProgress > 0 && (
-                        <Badge variant="secondary" className="border-0 bg-chart-1/10 text-chart-1 text-xs">{inProgress} in progress</Badge>
+                        <Badge variant="secondary" className="border-0 bg-chart-1/10 text-chart-1 ">{inProgress} in progress</Badge>
                       )}
                       {completed > 0 && (
-                        <Badge variant="secondary" className="border-0 bg-success/10 text-success text-xs">{completed} done</Badge>
+                        <Badge variant="secondary" className="border-0 bg-success/10 text-success ">{completed} done</Badge>
                       )}
-                      <span className="ml-1 text-xs text-muted-foreground whitespace-nowrap">
+                      <span className="ml-1 text-sm text-muted-foreground whitespace-nowrap">
                         {total} task{total === 1 ? "" : "s"}
                       </span>
                       <ChevronRight className="size-4 text-muted-foreground" />
@@ -774,7 +774,7 @@ function TasksPageContent() {
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground">
               <ClipboardList className="size-8 opacity-40" />
-              <p className="text-sm">No tasks found</p>
+              <p className="text-base">No tasks found</p>
             </div>
           ) : (
             <div className="divide-y divide-border/50">
@@ -797,26 +797,26 @@ function TasksPageContent() {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                        <p className="text-base font-medium text-foreground truncate">{task.title}</p>
                         {label && (
-                          <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20 gap-1">
+                          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 gap-1">
                             <BriefcaseBusiness className="size-3" />{label}
                           </Badge>
                         )}
                         <PriorityBadge priority={task.priority} />
                         <StatusBadge status={task.status} />
-                        {overdue && <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
+                        {overdue && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
                         <WorkingTimeBadge task={task} />
                       </div>
 
-                      {task.description && <p className="text-xs text-muted-foreground line-clamp-1 mb-1">{task.description}</p>}
+                      {task.description && <p className="text-sm text-muted-foreground line-clamp-1 mb-1">{task.description}</p>}
 
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         {employee && (
                           <div className="flex items-center gap-1.5">
-                            <Avatar className="size-4">
+                            <Avatar className="size-5">
                               <AvatarImage src={employee.avatar} />
-                              <AvatarFallback className="text-[8px]">{employee.initials}</AvatarFallback>
+                              <AvatarFallback className="text-tiny">{employee.initials}</AvatarFallback>
                             </Avatar>
                             <span>{employee.name}</span>
                           </div>
@@ -828,25 +828,25 @@ function TasksPageContent() {
                           </div>
                         )}
                         {task.managerId && task.managerId === task.assignedToId && (
-                          <Badge variant="outline" className="text-[10px] gap-1 bg-warning/10 text-warning border-warning/20">
+                          <Badge variant="outline" className="gap-1 bg-warning/10 text-warning border-warning/20">
                             <Handshake className="size-3" />Awaiting delegation
                           </Badge>
                         )}
+                        <span>Created {formatDate(task.createdAt)}</span>
                         {task.dueDate && (
                           <div className={`flex items-center gap-1 ${overdue ? "text-destructive" : ""}`}>
                             <CalendarIcon className="size-3" />
                             <span>Due {formatDate(task.dueDate)}</span>
                           </div>
                         )}
-                        <span>Created {formatDate(task.createdAt)}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="sm" className="h-8 px-2 gap-1 text-muted-foreground hover:text-foreground"
                         onClick={(e) => { e.stopPropagation(); setDetailTask(task); setDetailOpen(true) }}>
-                        <MessageSquare className="size-3.5" />
-                        {task.commentCount ? <span className="text-xs">{task.commentCount}</span> : null}
+                        <MessageSquare className="size-4" />
+                        {task.commentCount ? <span className="text-sm">{task.commentCount}</span> : null}
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -855,7 +855,7 @@ function TasksPageContent() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-44">
-                          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Update Status</div>
+                          <div className="px-2 py-1.5 text-sm font-medium text-muted-foreground">Update Status</div>
                           {statuses.map((status) => (
                             <DropdownMenuItem key={status} onClick={() => handleStatusChange(task, status)} className={task.status === status ? "bg-muted" : ""}>
                               {statusConfig[status].label}
@@ -927,9 +927,9 @@ function TasksPageContent() {
             </div>
             {isSelfTaskDialog && !editTask && (
               !employeeId ? (
-                <p className="text-xs text-destructive">Your account isn&apos;t linked to an employee profile, so you can&apos;t create self tasks. Ask an admin to link your login to an employee record.</p>
+                <p className="text-sm text-destructive">Your account isn&apos;t linked to an employee profile, so you can&apos;t create self tasks. Ask an admin to link your login to an employee record.</p>
               ) : formProjectId && !assignableProjectMembers.some((employee) => employee.id === employeeId) ? (
-                <p className="text-xs text-destructive">You&apos;re not a member of this project, so you can&apos;t self-assign a task here. Pick a project you belong to, or ask an admin to add you as a member.</p>
+                <p className="text-sm text-destructive">You&apos;re not a member of this project, so you can&apos;t self-assign a task here. Pick a project you belong to, or ask an admin to add you as a member.</p>
               ) : null
             )}
             {isAdmin && !isSelfTaskDialog && !editTask && (
@@ -937,7 +937,7 @@ function TasksPageContent() {
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <Label htmlFor="delegate-toggle">Delegate through a manager</Label>
-                    <p className="text-xs text-muted-foreground">Assign to a manager who then hands it to a team member.</p>
+                    <p className="text-sm text-muted-foreground">Assign to a manager who then hands it to a team member.</p>
                   </div>
                   <Switch id="delegate-toggle" checked={formDelegate} onCheckedChange={setFormDelegate} />
                 </div>
@@ -952,7 +952,7 @@ function TasksPageContent() {
                         {delegatableManagers.map((employee) => (
                           <SelectItem key={employee.id} value={employee.id}>
                             <div className="flex items-center gap-2">
-                              <Avatar className="size-5"><AvatarImage src={employee.avatar} /><AvatarFallback className="text-[9px]">{employee.initials}</AvatarFallback></Avatar>
+                              <Avatar className="size-5"><AvatarImage src={employee.avatar} /><AvatarFallback className="text-tiny">{employee.initials}</AvatarFallback></Avatar>
                               {employee.name}
                             </div>
                           </SelectItem>
@@ -960,7 +960,7 @@ function TasksPageContent() {
                       </SelectContent>
                     </Select>
                     {formProjectId && delegatableManagers.length === 0 && (
-                      <p className="text-xs text-muted-foreground">Add a manager as a project member to delegate here.</p>
+                      <p className="text-sm text-muted-foreground">Add a manager as a project member to delegate here.</p>
                     )}
                   </div>
                 )}
@@ -977,7 +977,7 @@ function TasksPageContent() {
                         {assignableProjectMembers.map((employee) => (
                           <SelectItem key={employee.id} value={employee.id}>
                             <div className="flex items-center gap-2">
-                              <Avatar className="size-5"><AvatarImage src={employee.avatar} /><AvatarFallback className="text-[9px]">{employee.initials}</AvatarFallback></Avatar>
+                              <Avatar className="size-5"><AvatarImage src={employee.avatar} /><AvatarFallback className="text-tiny">{employee.initials}</AvatarFallback></Avatar>
                               {employee.name}
                             </div>
                           </SelectItem>
@@ -1009,7 +1009,7 @@ function TasksPageContent() {
                     </DropdownMenu>
                   )}
                   {assignableProjectMembers.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Add members to this project before assigning a task.</p>
+                    <p className="text-sm text-muted-foreground">Add members to this project before assigning a task.</p>
                   )}
                 </div>
               )}
@@ -1045,7 +1045,7 @@ function TasksPageContent() {
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <p className="text-xs text-muted-foreground">Optional teammates who help on this task alongside the assignee.</p>
+                  <p className="text-sm text-muted-foreground">Optional teammates who help on this task alongside the assignee.</p>
                 </div>
               )}
               <div className="space-y-1.5">
@@ -1062,7 +1062,7 @@ function TasksPageContent() {
                 value={formEstimatedHours}
                 onChange={(e) => setFormEstimatedHours(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Countdown starts on assignment. Counts office hours only (10:00 AM–7:00 PM, Sundays excluded).
               </p>
             </div>

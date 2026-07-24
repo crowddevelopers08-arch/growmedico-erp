@@ -174,7 +174,7 @@ export function CsmPanel({
               >
                 <Avatar className="size-8 shrink-0">
                   <AvatarImage src={employee.avatar} alt={employee.name} />
-                  <AvatarFallback className="bg-primary/10 text-[10px] font-medium text-primary">
+                  <AvatarFallback className="bg-primary/10 text-tiny font-medium text-primary">
                     {employee.initials}
                   </AvatarFallback>
                 </Avatar>

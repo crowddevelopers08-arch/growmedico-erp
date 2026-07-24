@@ -25,7 +25,7 @@ const levelStyles: Record<UrgencyLevel, string> = {
 
 interface WorkingTimeBadgeProps {
   task: Pick<Task, "estimatedHours" | "createdAt" | "status">
-  /** Update cadence — 1s for a focused detail view, coarser for long lists. */
+  /** Update cadence. 1s by default so the seconds in the label actually tick. */
   intervalMs?: number
   className?: string
 }
@@ -35,7 +35,7 @@ interface WorkingTimeBadgeProps {
  * (10:00–19:00 IST, Sundays excluded), so it naturally freezes overnight and on
  * Sundays. Renders nothing when the task has no allocation, or is done/cancelled.
  */
-export function WorkingTimeBadge({ task, intervalMs = 30000, className }: WorkingTimeBadgeProps) {
+export function WorkingTimeBadge({ task, intervalMs = 1000, className }: WorkingTimeBadgeProps) {
   const now = useNow(intervalMs)
 
   const finished: TaskStatus[] = ["completed", "cancelled"]
@@ -55,7 +55,8 @@ export function WorkingTimeBadge({ task, intervalMs = 30000, className }: Workin
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
+        // tabular-nums keeps the chip from twitching as the digits change.
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-tiny font-semibold tabular-nums",
         levelStyles[status.level],
         className,
       )}

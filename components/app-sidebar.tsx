@@ -76,7 +76,7 @@ const employeeNavItems = [
 function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null
   return (
-    <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground group-data-[collapsible=icon]:hidden">
+    <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-tiny font-semibold text-primary-foreground group-data-[collapsible=icon]:hidden">
       {count > 99 ? "99+" : count}
     </span>
   )
@@ -193,7 +193,7 @@ export function AppSidebar() {
 
       <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <SidebarGroupLabel className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
             Main
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -223,7 +223,7 @@ export function AppSidebar() {
 
         {isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <SidebarGroupLabel className="px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               System
             </SidebarGroupLabel>
             <SidebarGroupContent>

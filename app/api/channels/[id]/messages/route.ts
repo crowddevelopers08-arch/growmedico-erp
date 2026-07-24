@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { pushNotification } from "@/lib/notifications"
-import { parseDirectChannelName } from "@/lib/chat"
+import { parseDirectChannelName, canAccessChannel, isGroupDmChannelName, parseGroupDmMeta } from "@/lib/chat"
 import { uploadAttachments, uploadMedia } from "@/lib/cloudinary"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -16,6 +16,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const directIds = parseDirectChannelName(channel.name)
   if (directIds && !directIds.includes(session.user.id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  // Group DMs and member-restricted channels: members only.
+  if (!directIds && isGroupDmChannelName(channel.name)) {
+    const meta = parseGroupDmMeta(channel.description)
+    if (!meta?.members.includes(session.user.id)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  } else if (!directIds && !canAccessChannel(channel.memberIds, session.user.id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -66,6 +75,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const directIds = parseDirectChannelName(channel.name)
   if (directIds && !directIds.includes(session.user.id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+  // Group DMs and member-restricted channels: members only.
+  if (!directIds && isGroupDmChannelName(channel.name)) {
+    const meta = parseGroupDmMeta(channel.description)
+    if (!meta?.members.includes(session.user.id)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  } else if (!directIds && !canAccessChannel(channel.memberIds, session.user.id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

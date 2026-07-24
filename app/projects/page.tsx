@@ -79,7 +79,7 @@ function getProgress(tasks: Task[]) {
 }
 
 function Chip({ className, children }: { className: string; children: ReactNode }) {
-  return <Badge variant="outline" className={cn("rounded-full px-2.5 py-1 text-xs", className)}>{children}</Badge>
+  return <Badge variant="outline" className={cn("rounded-full px-2.5 py-1", className)}>{children}</Badge>
 }
 
 function getFallbackProjectMembers(projectId: string, tasks: Task[], employees: Employee[]) {
@@ -120,7 +120,7 @@ function MemberSelector({
             <div className="flex min-w-0 items-center gap-3">
               <Avatar className="size-9">
                 <AvatarImage src={employee.avatar} />
-                <AvatarFallback className="bg-primary/15 text-[10px] text-primary">{employee.initials}</AvatarFallback>
+                <AvatarFallback className="bg-primary/15 text-tiny text-primary">{employee.initials}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-foreground">{employee.name}</p>
@@ -745,7 +745,7 @@ function ProjectsPageContent() {
                       {projectMembers.slice(0, 4).map((employee) => (
                         <Avatar key={employee.id} className="size-8 border-2 border-card">
                           <AvatarImage src={employee.avatar} />
-                          <AvatarFallback className="bg-primary/15 text-[10px] text-primary">{employee.initials ?? "NA"}</AvatarFallback>
+                          <AvatarFallback className="bg-primary/15 text-tiny text-primary">{employee.initials ?? "NA"}</AvatarFallback>
                         </Avatar>
                       ))}
                       {projectMembers.length === 0 && <span className="text-xs text-muted-foreground">No members</span>}
@@ -776,14 +776,14 @@ function ProjectsPageContent() {
                 <div className="flex flex-col gap-5 @3xl:flex-row @3xl:items-start @3xl:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 text-muted-foreground"><BriefcaseBusiness className="size-4" /><span className="truncate">{selectedProject.clientName}</span></div>
-                    <h1 className="mt-2 text-2xl font-semibold wrap-break-word @2xl:text-3xl">{selectedProject.name}</h1>
+                    <h1 className="mt-2 text-3xl font-bold wrap-break-word">{selectedProject.name}</h1>
                     <p className="mt-1 text-sm text-muted-foreground">{selectedProject.description || "Plan, assign, and track delivery in one place."}</p>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       {selectedProjectMembers.map((employee) => (
                         <div key={employee.id} className="flex items-center gap-2 rounded-full border bg-muted/40 px-3 py-1.5 text-xs text-foreground">
                           <Avatar className="size-6">
                             <AvatarImage src={employee.avatar} />
-                            <AvatarFallback className="bg-primary/15 text-[9px] text-primary">{employee.initials}</AvatarFallback>
+                            <AvatarFallback className="bg-primary/15 text-tiny text-primary">{employee.initials}</AvatarFallback>
                           </Avatar>
                           <span>{employee.name}</span>
                         </div>

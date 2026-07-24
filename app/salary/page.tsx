@@ -138,7 +138,7 @@ function SalaryPageContent() {
       {/* Page Title */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Salary & Payroll</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Salary & Payroll</h1>
           <p className="text-sm text-muted-foreground">
             Manage employee salaries and process payroll.
           </p>
@@ -169,9 +169,9 @@ function SalaryPageContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Payroll</p>
-                <p className="text-2xl font-semibold">{formatCurrency(stats.totalPayroll)}</p>
-                <p className="text-xs text-muted-foreground">{selectedMonth} {selectedYear}</p>
+                <p className="text-2sm font-medium text-muted-foreground">Total Payroll</p>
+                <p className="text-stat font-semibold">{formatCurrency(stats.totalPayroll)}</p>
+                <p className="text-2sm text-muted-foreground">{selectedMonth} {selectedYear}</p>
               </div>
               <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
                 <IndianRupee className="size-5 text-primary" />
@@ -183,9 +183,9 @@ function SalaryPageContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Bonus</p>
-                <p className="text-2xl font-semibold text-success">{formatCurrency(stats.totalBonus)}</p>
-                <p className="text-xs text-muted-foreground">This month</p>
+                <p className="text-2sm font-medium text-muted-foreground">Total Bonus</p>
+                <p className="text-stat font-semibold text-success">{formatCurrency(stats.totalBonus)}</p>
+                <p className="text-2sm text-muted-foreground">This month</p>
               </div>
               <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
                 <TrendingUp className="size-5 text-success" />
@@ -197,9 +197,9 @@ function SalaryPageContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Overtime Pay</p>
-                <p className="text-2xl font-semibold text-chart-1">{formatCurrency(stats.totalOvertime)}</p>
-                <p className="text-xs text-muted-foreground">Extra hours</p>
+                <p className="text-2sm font-medium text-muted-foreground">Overtime Pay</p>
+                <p className="text-stat font-semibold text-chart-1">{formatCurrency(stats.totalOvertime)}</p>
+                <p className="text-2sm text-muted-foreground">Extra hours</p>
               </div>
               <div className="flex size-10 items-center justify-center rounded-lg bg-chart-1/10">
                 <CreditCard className="size-5 text-chart-1" />
@@ -211,9 +211,9 @@ function SalaryPageContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Payment Status</p>
-                <p className="text-2xl font-semibold">{stats.paid}/{stats.total}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-2sm font-medium text-muted-foreground">Payment Status</p>
+                <p className="text-stat font-semibold">{stats.paid}/{stats.total}</p>
+                <p className="text-2sm text-muted-foreground">
                   {stats.pending > 0 ? `${stats.pending} pending` : "All paid"}
                 </p>
               </div>

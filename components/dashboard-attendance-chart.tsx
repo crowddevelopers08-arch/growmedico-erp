@@ -86,13 +86,13 @@ export function DashboardAttendanceChart() {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                className="text-xs fill-muted-foreground"
+                className="text-tiny fill-muted-foreground"
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                className="text-xs fill-muted-foreground"
+                className="text-tiny fill-muted-foreground"
               />
               <ChartTooltip
                 cursor={{ stroke: "var(--border)", strokeDasharray: "4 4" }}

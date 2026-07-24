@@ -118,6 +118,10 @@ export const projectCreateSchema = z.object({
 export const channelCreateSchema = z.object({
   name: z.string().trim().toLowerCase().regex(channelSlugRegex, "Use lowercase letters, numbers, and hyphens only"),
   description: z.string().trim().max(300, "Description is too long").optional().nullable(),
+  // Who else is in the channel. The creator is added server-side, so this is
+  // the list of *other* people and must not be empty — a channel nobody can
+  // read is never what was intended.
+  memberIds: z.array(z.string().trim().min(1)).min(1, "Select at least one member"),
 })
 
 export const loginSchema = z.object({

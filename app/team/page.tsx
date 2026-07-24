@@ -81,7 +81,7 @@ function MemberCard({ member }: { member: TeamMember }) {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-medium text-foreground">{member.name}</p>
-            <Badge variant="outline" className={`shrink-0 gap-1 text-[10px] ${cfg.chip}`}>
+            <Badge variant="outline" className={`shrink-0 gap-1 ${cfg.chip}`}>
               <cfg.icon className="size-3" />
               {cfg.label}
             </Badge>
@@ -151,7 +151,7 @@ function TeamPageContent() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
           <Network className="size-6 text-muted-foreground" />
           Team Directory
         </h1>
@@ -169,8 +169,8 @@ function TeamPageContent() {
                   <cfg.icon className="size-5" />
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold leading-none">{counts[role]}</p>
-                  <p className="text-xs text-muted-foreground">{cfg.plural}</p>
+                  <p className="text-stat font-semibold leading-none">{counts[role]}</p>
+                  <p className="text-2sm text-muted-foreground">{cfg.plural}</p>
                 </div>
               </CardContent>
             </Card>
@@ -182,8 +182,8 @@ function TeamPageContent() {
               <Users className="size-5" />
             </div>
             <div>
-              <p className="text-2xl font-semibold leading-none">{members.length}</p>
-              <p className="text-xs text-muted-foreground">Total People</p>
+              <p className="text-stat font-semibold leading-none">{members.length}</p>
+              <p className="text-2sm text-muted-foreground">Total People</p>
             </div>
           </CardContent>
         </Card>
@@ -219,7 +219,7 @@ function TeamPageContent() {
                 <div className="flex items-center gap-2">
                   <span className={`size-2 rounded-full ${cfg.dot}`} />
                   <h2 className={`text-sm font-semibold uppercase tracking-wider ${cfg.accent}`}>{cfg.plural}</h2>
-                  <span className="grid min-w-5 place-items-center rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">
+                  <span className="grid min-w-5 place-items-center rounded-full bg-muted px-1.5 text-tiny font-semibold text-muted-foreground">
                     {people.length}
                   </span>
                 </div>

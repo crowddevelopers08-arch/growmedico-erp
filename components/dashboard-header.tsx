@@ -97,7 +97,7 @@ export function DashboardHeader() {
               <Button variant="ghost" size="icon" className="relative size-9">
                 <Bell className="size-4 text-muted-foreground" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-chart-1 px-1 text-[10px] font-semibold text-white">
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-chart-1 px-1 text-tiny font-semibold text-white">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -109,13 +109,13 @@ export function DashboardHeader() {
                 <span className="text-sm font-semibold">Notifications</span>
                 <div className="flex items-center gap-2">
                   {unreadCount > 0 && (
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="">
                       {unreadCount} new
                     </Badge>
                   )}
                   {unreadCount > 0 && (
                     <button
-                      className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-1 text-tiny text-muted-foreground hover:text-foreground transition-colors"
                       onClick={markAllRead}
                     >
                       <CheckCheck className="size-3" />
@@ -152,7 +152,7 @@ export function DashboardHeader() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="truncate text-sm font-medium">{notif.title}</span>
-                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                          <span className="shrink-0 text-tiny text-muted-foreground">
                             {relativeTime(notif.createdAt)}
                           </span>
                         </div>

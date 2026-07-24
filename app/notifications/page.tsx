@@ -50,7 +50,7 @@ export default function NotificationsPage() {
     <DashboardLayout>
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Notifications</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Notifications</h1>
           <p className="text-sm text-muted-foreground">
             {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
           </p>
@@ -87,7 +87,7 @@ export default function NotificationsPage() {
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.label}
                 </h2>
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="">
                   {group.items.length}
                 </Badge>
               </div>
@@ -112,7 +112,7 @@ export default function NotificationsPage() {
                           {!notif.read && <span className="size-1.5 shrink-0 rounded-full bg-chart-1" />}
                         </div>
                         <p className="text-sm text-muted-foreground">{notif.message}</p>
-                        <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                        <span className="mt-0.5 block text-tiny text-muted-foreground">
                           {relativeTime(notif.createdAt)}
                         </span>
                       </button>

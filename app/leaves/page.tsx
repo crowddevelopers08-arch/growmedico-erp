@@ -167,7 +167,7 @@ function LeavesPageContent() {
       {/* Page Title */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Leave Requests</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Leave Requests</h1>
           <p className="text-sm text-muted-foreground">
             {canApprove ? "Manage and approve employee leave requests." : "View and manage your leave requests. Casual: 6, Privilege: 6, Sick: 12, Work From Home: 6 per quarter."}
           </p>
@@ -184,8 +184,8 @@ function LeavesPageContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Requests</p>
-                <p className="text-2xl font-semibold">{stats.total}</p>
+                <p className="text-2sm font-medium text-muted-foreground">Total Requests</p>
+                <p className="text-stat font-semibold">{stats.total}</p>
               </div>
               <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
                 <CalendarDays className="size-5 text-muted-foreground" />
@@ -197,8 +197,8 @@ function LeavesPageContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-semibold text-warning">{stats.pending}</p>
+                <p className="text-2sm font-medium text-muted-foreground">Pending</p>
+                <p className="text-stat font-semibold text-warning">{stats.pending}</p>
               </div>
               <div className="flex size-10 items-center justify-center rounded-lg bg-warning/10">
                 <Clock className="size-5 text-warning" />
@@ -210,8 +210,8 @@ function LeavesPageContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Approved</p>
-                <p className="text-2xl font-semibold text-success">{stats.approved}</p>
+                <p className="text-2sm font-medium text-muted-foreground">Approved</p>
+                <p className="text-stat font-semibold text-success">{stats.approved}</p>
               </div>
               <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
                 <Check className="size-5 text-success" />
@@ -223,8 +223,8 @@ function LeavesPageContent() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Rejected</p>
-                <p className="text-2xl font-semibold text-destructive">{stats.rejected}</p>
+                <p className="text-2sm font-medium text-muted-foreground">Rejected</p>
+                <p className="text-stat font-semibold text-destructive">{stats.rejected}</p>
               </div>
               <div className="flex size-10 items-center justify-center rounded-lg bg-destructive/10">
                 <X className="size-5 text-destructive" />

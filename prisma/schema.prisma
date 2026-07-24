@@ -224,6 +224,10 @@ model Channel {
   name        String    @unique
   description String?
   createdById String
+  // Who can see and post in a group channel. Empty means "open to everyone",
+  // which is what channels created before membership existed fall back to.
+  // Direct and group DMs keep their membership in the name/description meta.
+  memberIds   String[]  @default([])
   messages    Message[]
   createdAt   DateTime  @default(now())
 }

@@ -105,7 +105,7 @@ function renderContent(content: string, users: MentionUser[]) {
       const user = users.find((u) => u.userId === match[1])
       const fallbackName = match[2]
       return (
-        <span key={i} className="text-primary font-medium bg-primary/10 px-0.5 rounded text-xs">
+        <span key={i} className="text-warning font-medium bg-warning/15 px-0.5 rounded text-xs">
           @{user?.name ?? fallbackName ?? "Unknown"}
         </span>
       )
@@ -138,7 +138,7 @@ function CommentAudioPlayer({ src }: { src: string }) {
           <div className="h-full bg-current rounded-full transition-all" style={{ width: duration > 0 ? `${(current / duration) * 100}%` : "0%" }} />
         </div>
       </div>
-      <span className="text-[10px] opacity-60 tabular-nums">
+      <span className="text-tiny opacity-60 tabular-nums">
         {duration > 0
           ? `${Math.floor((duration - current) / 60)}:${Math.floor((duration - current) % 60).toString().padStart(2, "0")}`
           : "0:00"}
@@ -283,17 +283,17 @@ export function TaskDetailSheet({
 
             <div className="flex flex-wrap gap-2 mt-3">
               {projectName && (
-                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
                   Project: {projectName}
                 </Badge>
               )}
-              <Badge variant="outline" className={`text-xs gap-1 ${priorityConfig[task.priority].class}`}>
+              <Badge variant="outline" className={`gap-1 ${priorityConfig[task.priority].class}`}>
                 {priorityConfig[task.priority].label}
               </Badge>
-              <Badge variant="outline" className={`text-xs gap-1 ${statusConfig[task.status].class}`}>
+              <Badge variant="outline" className={`gap-1 ${statusConfig[task.status].class}`}>
                 <StatusIcon className="size-3" />{statusConfig[task.status].label}
               </Badge>
-              {isOverdue && <Badge variant="outline" className="text-xs bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
+              {isOverdue && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
               <WorkingTimeBadge task={task} intervalMs={1000} />
             </div>
 
@@ -326,7 +326,7 @@ export function TaskDetailSheet({
                     <div key={employee.id} className="flex items-center gap-2 rounded-full border bg-muted/40 px-2.5 py-1 text-xs text-foreground">
                       <Avatar className="size-5">
                         <AvatarImage src={employee.avatar} />
-                        <AvatarFallback className="text-[8px]">{employee.initials}</AvatarFallback>
+                        <AvatarFallback className="text-tiny">{employee.initials}</AvatarFallback>
                       </Avatar>
                       <span>{employee.name}</span>
                     </div>
@@ -387,7 +387,7 @@ export function TaskDetailSheet({
                       {!isGrouped ? (
                         <Avatar className="size-7 shrink-0 mt-0.5">
                           <AvatarImage src={comment.senderAvatar ?? undefined} />
-                          <AvatarFallback className="text-[9px] bg-primary/10 text-primary">{comment.senderName.slice(0, 2).toUpperCase()}</AvatarFallback>
+                          <AvatarFallback className="text-tiny bg-primary/10 text-primary">{comment.senderName.slice(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                       ) : (
                         <div className="size-7 shrink-0" />
@@ -397,8 +397,8 @@ export function TaskDetailSheet({
                           <div className="flex items-baseline justify-between mb-1">
                             <div className="flex items-baseline gap-2">
                               <span className="text-xs font-semibold">{isMine ? "You" : comment.senderName}</span>
-                              <span className="text-[10px] text-muted-foreground">{formatTime(comment.createdAt)}</span>
-                              {comment.editedAt && <span className="text-[10px] text-muted-foreground italic">(edited)</span>}
+                              <span className="text-tiny text-muted-foreground">{formatTime(comment.createdAt)}</span>
+                              {comment.editedAt && <span className="text-tiny text-muted-foreground italic">(edited)</span>}
                             </div>
                             {(canEdit || canDelete) && (
                               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -477,7 +477,7 @@ export function TaskDetailSheet({
             <div className="flex items-start gap-3">
               <Avatar className="size-7 shrink-0 mt-1">
                 <AvatarImage src={session?.user?.image ?? undefined} />
-                <AvatarFallback className="text-[9px] bg-primary/10 text-primary">{session?.user?.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback className="text-tiny bg-primary/10 text-primary">{session?.user?.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <ChatInput

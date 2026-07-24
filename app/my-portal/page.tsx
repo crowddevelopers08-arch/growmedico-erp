@@ -254,7 +254,7 @@ function MyPortalContent() {
       <>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">My Portal</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">My Portal</h1>
             <p className="text-sm text-muted-foreground">
               Your admin account is active, but it is not linked to an employee profile.
             </p>
@@ -271,7 +271,7 @@ function MyPortalContent() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h2 className="text-xl font-semibold text-foreground">{userName}</h2>
+                  <h2 className="text-2xl font-semibold text-foreground">{userName}</h2>
                   <p className="text-sm text-muted-foreground">Administrator</p>
                   <p className="text-xs text-muted-foreground">{userEmail}</p>
                 </div>
@@ -341,7 +341,7 @@ function MyPortalContent() {
       {/* Page Title */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">My Portal</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">My Portal</h1>
           <p className="text-sm text-muted-foreground">
             Welcome back, {currentEmployee.name.split(" ")[0]}! Manage your attendance and leave requests.
           </p>
@@ -379,7 +379,7 @@ function MyPortalContent() {
                 onChange={handleAvatarChange}
               />
               <div>
-                <h2 className="text-xl font-semibold text-foreground">{currentEmployee.name}</h2>
+                <h2 className="text-2xl font-semibold text-foreground">{currentEmployee.name}</h2>
                 <p className="text-sm text-muted-foreground">{currentEmployee.role}</p>
                 <p className="text-xs text-muted-foreground">{currentEmployee.department}</p>
               </div>
@@ -388,8 +388,8 @@ function MyPortalContent() {
             {/* Punch In/Out Section */}
             <div className="flex flex-col items-center gap-3 rounded-xl bg-muted/50 p-6">
               <div className="text-center">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Today</p>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-2sm font-medium text-muted-foreground uppercase tracking-wider">Today</p>
+                <p className="text-stat font-bold text-foreground">
                   {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                 </p>
               </div>
@@ -436,8 +436,8 @@ function MyPortalContent() {
                 <Briefcase className="size-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{presentDays}</p>
-                <p className="text-xs text-muted-foreground">Days Present (This Month)</p>
+                <p className="text-stat font-bold text-foreground">{presentDays}</p>
+                <p className="text-2sm text-muted-foreground">Days Present (This Month)</p>
               </div>
             </div>
           </CardContent>
@@ -450,8 +450,8 @@ function MyPortalContent() {
                 <Timer className="size-5 text-success" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{totalWorkHours.toFixed(1)}h</p>
-                <p className="text-xs text-muted-foreground">Total Hours Worked</p>
+                <p className="text-stat font-bold text-foreground">{totalWorkHours.toFixed(1)}h</p>
+                <p className="text-2sm text-muted-foreground">Total Hours Worked</p>
               </div>
             </div>
           </CardContent>
@@ -464,8 +464,8 @@ function MyPortalContent() {
                 <TrendingUp className="size-5 text-warning" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{totalOvertime.toFixed(1)}h</p>
-                <p className="text-xs text-muted-foreground">Overtime Hours</p>
+                <p className="text-stat font-bold text-foreground">{totalOvertime.toFixed(1)}h</p>
+                <p className="text-2sm text-muted-foreground">Overtime Hours</p>
               </div>
             </div>
           </CardContent>
@@ -478,8 +478,8 @@ function MyPortalContent() {
                 <HourglassIcon className="size-5 text-info" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{pendingRequests.length}</p>
-                <p className="text-xs text-muted-foreground">Pending Requests</p>
+                <p className="text-stat font-bold text-foreground">{pendingRequests.length}</p>
+                <p className="text-2sm text-muted-foreground">Pending Requests</p>
               </div>
             </div>
           </CardContent>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { buildDirectChannelName, parseDirectChannelName, isGroupDmChannelName, parseGroupDmMeta, GROUP_DM_PREFIX } from "@/lib/chat"
+import { buildDirectChannelName, parseDirectChannelName, isGroupDmChannelName, parseGroupDmMeta, canAccessChannel, GROUP_DM_PREFIX } from "@/lib/chat"
 import { randomUUID } from "crypto"
 import { channelCreateSchema, firstIssueMessage } from "@/lib/validations"
 
@@ -20,9 +20,11 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
   })
 
-  // Collect all user IDs needed: from direct channels and group_dm channels
+  // Collect all user IDs needed: direct peers, group DM members and the
+  // members of restricted group channels.
   const directUserIds: string[] = []
   const groupDmUserIds: string[] = []
+  const channelMemberIds: string[] = []
 
   for (const channel of channels) {
     if (isGroupDmChannelName(channel.name)) {
@@ -31,10 +33,11 @@ export async function GET() {
     } else {
       const directIds = parseDirectChannelName(channel.name)
       if (directIds) directUserIds.push(...directIds.filter((id) => id !== session.user.id))
+      else channelMemberIds.push(...channel.memberIds)
     }
   }
 
-  const allUserIds = Array.from(new Set([...directUserIds, ...groupDmUserIds]))
+  const allUserIds = Array.from(new Set([...directUserIds, ...groupDmUserIds, ...channelMemberIds]))
 
   const users = allUserIds.length
     ? await prisma.user.findMany({
@@ -63,9 +66,11 @@ export async function GET() {
           const meta = parseGroupDmMeta(channel.description)
           return meta !== null && meta.members.includes(session.user.id)
         }
-        // Regular channels and direct DMs
+        // Direct DMs: only the two people in the name.
         const directIds = parseDirectChannelName(channel.name)
-        return !directIds || directIds.includes(session.user.id)
+        if (directIds) return directIds.includes(session.user.id)
+        // Group channels: members only, unless the channel is open.
+        return canAccessChannel(channel.memberIds, session.user.id)
       })
       .map((channel) => {
         const latestMessage = channel.messages[0]
@@ -120,6 +125,15 @@ export async function GET() {
             createdById: channel.createdById,
             createdAt: channel.createdAt,
             kind: "group" as const,
+            memberIds: channel.memberIds,
+            groupMembers: channel.memberIds.map((userId) => {
+              const user = userDirectory.get(userId)
+              return {
+                userId,
+                name: user?.employee?.name ?? user?.email ?? "Unknown",
+                avatar: user?.employee?.avatar ?? null,
+              }
+            }),
             unreadCount:
               latestMessage &&
               latestMessage.senderId !== session.user.id &&
@@ -290,16 +304,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Only admins and managers can create channels" }, { status: 403 })
   }
 
-  const parsed = channelCreateSchema.safeParse({ name, description })
+  const parsed = channelCreateSchema.safeParse({ name, description, memberIds })
   if (!parsed.success) {
     return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 })
   }
 
+  // The creator is always in their own channel, and only real accounts count.
+  const requestedIds = Array.from(new Set([session.user.id, ...parsed.data.memberIds]))
+  const validMembers = await prisma.user.findMany({
+    where: { id: { in: requestedIds } },
+    select: { id: true, email: true, employee: { select: { name: true, avatar: true } } },
+  })
+  if (validMembers.length < 2) {
+    return NextResponse.json({ error: "Select at least one member" }, { status: 400 })
+  }
+
   try {
     const channel = await prisma.channel.create({
-      data: { name: parsed.data.name, description: parsed.data.description?.trim() || null, createdById: session.user.id },
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description?.trim() || null,
+        createdById: session.user.id,
+        memberIds: validMembers.map((user) => user.id),
+      },
     })
-    return NextResponse.json(channel)
+    return NextResponse.json({
+      ...channel,
+      kind: "group" as const,
+      groupMembers: validMembers.map((user) => ({
+        userId: user.id,
+        name: user.employee?.name ?? user.email,
+        avatar: user.employee?.avatar ?? null,
+      })),
+    })
   } catch {
     return NextResponse.json({ error: "Channel name already exists" }, { status: 409 })
   }

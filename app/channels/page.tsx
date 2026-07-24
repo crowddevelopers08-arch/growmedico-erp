@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Hash, Plus, Trash2, Pencil, Check, CheckCheck, X, Play, Pause, FileText, Download, Phone, Video, Users } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
 import { ChatInput, type MentionUser, type SendData, type Attachment } from "@/components/chat-input"
 import { channelCreateSchema, firstIssueMessage } from "@/lib/validations"
@@ -50,7 +51,7 @@ function renderContent(content: string, users: MentionUser[]) {
     if (match) {
       const user = users.find((u) => u.userId === match[1])
       const fallbackName = match[2]
-      return <span key={i} className="rounded bg-primary/10 px-0.5 text-xs font-medium text-primary">@{user?.name ?? fallbackName ?? "Unknown"}</span>
+      return <span key={i} className="rounded bg-warning/15 px-0.5 text-xs font-medium text-warning">@{user?.name ?? fallbackName ?? "Unknown"}</span>
     }
     return <span key={i}>{part}</span>
   })
@@ -82,7 +83,7 @@ function AudioPlayer({ src, isMine }: { src: string; isMine: boolean }) {
         <div className="h-1 overflow-hidden rounded-full bg-border/60">
           <div className="h-full rounded-full bg-primary transition-all" style={{ width: duration > 0 ? `${(current / duration) * 100}%` : "0%" }} />
         </div>
-        <span className="text-[10px] opacity-60 tabular-nums mt-0.5 block">
+        <span className="text-tiny opacity-60 tabular-nums mt-0.5 block">
           {duration > 0 ? `${Math.floor((duration - current) / 60).toString().padStart(2, "0")}:${Math.floor((duration - current) % 60).toString().padStart(2, "0")}` : "0:00"}
         </span>
       </div>
@@ -123,7 +124,10 @@ function ChannelsPageContent() {
   const [deleteChannel, setDeleteChannel] = useState<Channel | null>(null)
   const [channelName, setChannelName] = useState("")
   const [channelDesc, setChannelDesc] = useState("")
+  const [channelMemberIds, setChannelMemberIds] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
+  const [membersOpen, setMembersOpen] = useState(false)
+  const [savingMembers, setSavingMembers] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastMessageTime = useRef<string | null>(null)
@@ -210,10 +214,63 @@ function ChannelsPageContent() {
     toast.success("Message deleted")
   }
 
+  const selectableUsers = useMemo(
+    () => mentionUsers.filter((user) => user.userId !== currentUserId),
+    [currentUserId, mentionUsers]
+  )
+
+  // @-mentions offer this channel's members only. A channel with no roster is
+  // open to the whole company, so there everyone is mentionable.
+  const composerMentionUsers = useMemo<MentionUser[]>(() => {
+    const memberIds = selectedChannel?.memberIds ?? []
+    if (memberIds.length === 0) return selectableUsers
+    return memberIds
+      .filter((id) => id !== currentUserId)
+      .map(
+        (id) =>
+          selectableUsers.find((user) => user.userId === id) ??
+          (selectedChannel?.groupMembers ?? [])
+            .filter((member) => member.userId === id)
+            .map((member) => ({ userId: member.userId, name: member.name, avatar: member.avatar }))[0]
+      )
+      .filter((user): user is MentionUser => Boolean(user))
+  }, [currentUserId, selectableUsers, selectedChannel])
+
+  const canManageMembers =
+    !!selectedChannel && (isAdmin || selectedChannel.createdById === currentUserId)
+
+  const handleUpdateMembers = async (addMemberIds: string[], removeMemberIds: string[]) => {
+    if (!selectedChannel) return
+    setSavingMembers(true)
+    try {
+      const res = await fetch(`/api/channels/${selectedChannel.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addMemberIds, removeMemberIds }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed to update members")
+      setSelectedChannel((prev) =>
+        prev ? { ...prev, memberIds: data.memberIds, groupMembers: data.groupMembers } : prev
+      )
+      setChannels((prev) =>
+        prev.map((ch) =>
+          ch.id === selectedChannel.id ? { ...ch, memberIds: data.memberIds, groupMembers: data.groupMembers } : ch
+        )
+      )
+      toast.success("Members updated")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update members")
+    } finally {
+      setSavingMembers(false)
+    }
+  }
+
   const handleCreateChannel = async () => {
     const parsed = channelCreateSchema.safeParse({
       name: channelName.trim(),
       description: channelDesc.trim() || null,
+      memberIds: channelMemberIds,
     })
     if (!parsed.success) {
       toast.error(firstIssueMessage(parsed.error))
@@ -233,6 +290,7 @@ function ChannelsPageContent() {
       setCreateOpen(false)
       setChannelName("")
       setChannelDesc("")
+      setChannelMemberIds([])
       await loadChannels()
       setSelectedChannel(data)
       setShowList(false)
@@ -302,7 +360,7 @@ function ChannelsPageContent() {
                     <span className="font-medium text-sm text-foreground truncate">{ch.name}</span>
                     <div className="flex items-center gap-1">
                       {(ch.unreadCount ?? 0) > 0 && (
-                        <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">{ch.unreadCount}</span>
+                        <span className="grid min-w-5 place-items-center rounded-full bg-primary px-1.5 py-0.5 text-tiny font-semibold text-primary-foreground">{ch.unreadCount}</span>
                       )}
                       {isAdmin && (
                         <Button variant="ghost" size="icon" className="size-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0" onClick={(e) => { e.stopPropagation(); setDeleteChannel(ch) }}>
@@ -331,9 +389,22 @@ function ChannelsPageContent() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-foreground">{selectedChannel.name}</p>
-                <p className="hidden truncate text-xs text-muted-foreground sm:block">{selectedChannel.description ?? "Channel"}</p>
+                <p className="hidden truncate text-xs text-muted-foreground sm:block">
+                  {selectedChannel.memberIds?.length
+                    ? `${selectedChannel.memberIds.length} member${selectedChannel.memberIds.length === 1 ? "" : "s"}`
+                    : selectedChannel.description ?? "Channel"}
+                </p>
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-muted-foreground hover:text-foreground sm:size-8"
+                  onClick={() => setMembersOpen(true)}
+                  title="Members"
+                >
+                  <Users className="size-3.5 sm:size-4" />
+                </Button>
                 <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground sm:size-8" onClick={() => toast("Voice call option opened")} title="Voice Call"><Phone className="size-3.5 sm:size-4" /></Button>
                 <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground sm:size-8" onClick={() => toast("Video call option opened")} title="Video Call"><Video className="size-3.5 sm:size-4" /></Button>
               </div>
@@ -359,7 +430,7 @@ function ChannelsPageContent() {
 
                     return (
                       <div key={msg.id}>
-                        {msg.showDateSeparator && <div className="flex justify-center my-4"><span className="rounded-full bg-card px-3 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">{formatDateSeparator(msg.createdAt)}</span></div>}
+                        {msg.showDateSeparator && <div className="flex justify-center my-4"><span className="rounded-full bg-card px-3 py-1 text-tiny font-medium text-muted-foreground shadow-sm">{formatDateSeparator(msg.createdAt)}</span></div>}
                         <div className={cn("flex gap-1.5 sm:gap-2 mb-0.5", isMine ? "flex-row-reverse" : "flex-row", msg.isFirst ? "mt-3" : "mt-0.5")}>
                           {!isMine && (msg.isFirst ? <Avatar className="hidden sm:flex size-8 shrink-0 mt-0.5"><AvatarImage src={msg.senderAvatar ?? undefined} /><AvatarFallback className="bg-primary/15 text-xs text-primary">{msg.senderName.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar> : <div className="hidden sm:block size-8 shrink-0" />)}
                           <div className={cn("flex flex-col max-w-[92%] sm:max-w-[70%] lg:max-w-[60%]", isMine ? "items-end" : "items-start")}>
@@ -388,9 +459,9 @@ function ChannelsPageContent() {
                                   {msg.audioContent && <AudioPlayer src={msg.audioContent} isMine={isMine} />}
                                   {attachments.length > 0 && <div className="flex flex-wrap gap-2">{attachments.map((att, i) => <AttachmentChip key={i} att={att} isMine={isMine} />)}</div>}
                                   <div className="flex items-center justify-end gap-1 -mb-0.5">
-                                    {msg.editedAt && <span className={cn("text-[10px] italic", isMine ? "text-primary-foreground/75" : "text-muted-foreground")}>edited</span>}
-                                    {isMine && <span className="text-[10px] text-primary-foreground/90">{readByOthers ? "Read" : "Sent"}</span>}
-                                    <span className={cn("text-[10px]", isMine ? "text-primary-foreground/90" : "text-muted-foreground")}>{formatTime(msg.createdAt)}</span>
+                                    {msg.editedAt && <span className={cn("text-tiny italic", isMine ? "text-primary-foreground/75" : "text-muted-foreground")}>edited</span>}
+                                    {isMine && <span className="text-tiny text-primary-foreground/90">{readByOthers ? "Read" : "Sent"}</span>}
+                                    <span className={cn("text-tiny", isMine ? "text-primary-foreground/90" : "text-muted-foreground")}>{formatTime(msg.createdAt)}</span>
                                     {getTick(msg)}
                                   </div>
                                 </div>
@@ -409,7 +480,7 @@ function ChannelsPageContent() {
             <div className="shrink-0 border-t bg-card px-2 py-2 sm:px-3">
               <ChatInput
                 placeholder={`Message #${selectedChannel.name}`}
-                users={mentionUsers}
+                users={composerMentionUsers}
                 onSend={async (data) => {
                   try { await handleSend(data) }
                   catch (err) { toast.error(err instanceof Error ? err.message : "Failed to send message") }
@@ -446,10 +517,110 @@ function ChannelsPageContent() {
               <Label>Description</Label>
               <Textarea placeholder="What's this channel about?" rows={2} value={channelDesc} onChange={(e) => setChannelDesc(e.target.value)} />
             </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Members *</Label>
+                <span className="text-xs text-muted-foreground">{channelMemberIds.length} selected</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Only the people you pick (plus you) can see this channel.
+              </p>
+              <div className="max-h-52 space-y-1 overflow-y-auto rounded-lg border p-1">
+                {selectableUsers.length === 0 ? (
+                  <p className="px-2 py-3 text-2sm text-muted-foreground">No other accounts yet.</p>
+                ) : (
+                  selectableUsers.map((user) => {
+                    const checked = channelMemberIds.includes(user.userId)
+                    return (
+                      <label
+                        key={user.userId}
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(value) =>
+                            setChannelMemberIds((prev) =>
+                              value === true ? [...prev, user.userId] : prev.filter((id) => id !== user.userId)
+                            )
+                          }
+                        />
+                        <Avatar className="size-6">
+                          <AvatarImage src={user.avatar ?? undefined} />
+                          <AvatarFallback className="bg-primary/10 text-tiny text-primary">
+                            {user.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="truncate text-2sm">{user.name}</span>
+                      </label>
+                    )
+                  })
+                )}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
-            <Button onClick={handleCreateChannel} loading={creating} disabled={!channelName.trim()}>Create Group</Button>
+            <Button
+              onClick={handleCreateChannel}
+              loading={creating}
+              disabled={!channelName.trim() || channelMemberIds.length === 0}
+            >
+              Create Group
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Channel members: who can see and post here. */}
+      <Dialog open={membersOpen} onOpenChange={setMembersOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Channel Members</DialogTitle>
+            <DialogDescription>
+              {selectedChannel?.memberIds?.length
+                ? canManageMembers
+                  ? "Tick to add someone, untick to remove them."
+                  : "People who can see and post in this channel."
+                : "This channel is open to everyone in the company."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border p-1">
+            {selectableUsers.length === 0 ? (
+              <p className="px-2 py-3 text-2sm text-muted-foreground">No other accounts yet.</p>
+            ) : (
+              selectableUsers.map((user) => {
+                const isMember = (selectedChannel?.memberIds ?? []).includes(user.userId)
+                const isChannelCreator = selectedChannel?.createdById === user.userId
+                return (
+                  <label
+                    key={user.userId}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/50"
+                  >
+                    <Checkbox
+                      checked={isMember}
+                      disabled={!canManageMembers || savingMembers || isChannelCreator}
+                      onCheckedChange={(value) =>
+                        handleUpdateMembers(
+                          value === true ? [user.userId] : [],
+                          value === true ? [] : [user.userId]
+                        )
+                      }
+                    />
+                    <Avatar className="size-6">
+                      <AvatarImage src={user.avatar ?? undefined} />
+                      <AvatarFallback className="bg-primary/10 text-tiny text-primary">
+                        {user.name.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="truncate text-2sm">{user.name}</span>
+                    {isChannelCreator && <span className="ml-auto text-tiny text-muted-foreground">Creator</span>}
+                  </label>
+                )
+              })
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMembersOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

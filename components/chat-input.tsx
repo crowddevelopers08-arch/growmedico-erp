@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useMemo, type ReactNode } from "react"
 import { Send, Mic, Square, Paperclip, X, Play, Pause, FileText, Smile } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -52,6 +52,7 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
   const [showEmoji, setShowEmoji] = useState(false)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const highlightRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -78,9 +79,40 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
     ? users.filter((u) => u.name.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 8)
     : []
 
+  // The composed text with every "@Name" that will actually ping someone shown
+  // in the warning colour. Only names picked from the dropdown are highlighted,
+  // so what lights up is exactly what gets sent as a mention.
+  const highlightedContent = useMemo((): ReactNode => {
+    if (!content || mentionedUsers.length === 0) return content
+    // Longest names first so "@Sam" can't match part of "@Samuel".
+    const names = [...mentionedUsers]
+      .sort((a, b) => b.name.length - a.name.length)
+      .map((u) => u.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    const pattern = new RegExp(`@(?:${names.join("|")})`, "g")
+
+    const parts: ReactNode[] = []
+    let lastIndex = 0
+    for (const match of content.matchAll(pattern)) {
+      const start = match.index
+      if (start > lastIndex) parts.push(content.slice(lastIndex, start))
+      parts.push(
+        <span key={start} className="rounded bg-warning/15 font-medium text-warning">{match[0]}</span>
+      )
+      lastIndex = start + match[0].length
+    }
+    if (lastIndex < content.length) parts.push(content.slice(lastIndex))
+    return parts
+  }, [content, mentionedUsers])
+
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
     setContent(val)
+    // No mentionable people (a one-to-one chat) means "@" is just a character:
+    // never open the picker, so Enter keeps sending instead of being swallowed.
+    if (users.length === 0) {
+      setMentionState(null)
+      return
+    }
     const cursor = e.target.selectionStart
     const textBeforeCursor = val.slice(0, cursor)
     const match = textBeforeCursor.match(/@(\w*)$/)
@@ -256,7 +288,7 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
             >
               <Avatar className="size-7">
                 <AvatarImage src={user.avatar ?? undefined} />
-                <AvatarFallback className="bg-primary/15 text-[9px] text-primary">{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback className="bg-primary/15 text-tiny text-primary">{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <span>{user.name}</span>
             </button>
@@ -279,20 +311,35 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
             <Smile className="size-5" />
           </Button>
 
-          {/* Textarea */}
-          <Textarea
-            ref={textareaRef}
-            placeholder={isRecording ? `Recording... ${fmtTime(recordingTime)}` : placeholder}
-            value={content}
-            onChange={handleTextChange}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") { setMentionState(null); return }
-              if (e.key === "Enter" && !e.shiftKey && !mentionState) { e.preventDefault(); handleSend() }
-            }}
-            rows={rows}
-            className="min-h-7 max-h-32 flex-1 min-w-0 resize-none border-none bg-transparent py-1.5 text-sm shadow-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
-            disabled={disabled || isRecording}
-          />
+          {/* Textarea. A plain <textarea> can't colour part of its own text, so
+              the same text is mirrored in the div behind it with the mentions
+              highlighted, and the textarea's own text is made transparent. Both
+              layers use identical typography and padding so they line up. */}
+          <div className="relative flex min-w-0 flex-1">
+            <div
+              ref={highlightRef}
+              aria-hidden
+              className="pointer-events-none absolute inset-0 overflow-hidden px-3 py-1.5 text-sm whitespace-pre-wrap wrap-break-word text-foreground"
+            >
+              {highlightedContent}
+            </div>
+            <Textarea
+              ref={textareaRef}
+              placeholder={isRecording ? `Recording... ${fmtTime(recordingTime)}` : placeholder}
+              value={content}
+              onChange={handleTextChange}
+              onScroll={(e) => {
+                if (highlightRef.current) highlightRef.current.scrollTop = e.currentTarget.scrollTop
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") { setMentionState(null); return }
+                if (e.key === "Enter" && !e.shiftKey && !mentionState) { e.preventDefault(); handleSend() }
+              }}
+              rows={rows}
+              className="relative min-h-7 max-h-32 w-full resize-none border-none bg-transparent py-1.5 text-sm text-transparent caret-foreground shadow-none selection:bg-primary/25 placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+              disabled={disabled || isRecording}
+            />
+          </div>
 
           {/* Attach button */}
           <div className="flex items-center shrink-0 mb-0.5">
@@ -364,7 +411,7 @@ export function ChatInput({ placeholder = "Type a message...", users, disabled, 
 
       {/* Recording hint */}
       {isRecording && (
-        <p className="text-center text-[10px] text-muted-foreground">
+        <p className="text-center text-tiny text-muted-foreground">
           Recording {fmtTime(recordingTime)} · tap stop when done
         </p>
       )}

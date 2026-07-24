@@ -26,6 +26,19 @@ export function isGroupDmChannelName(name: string) {
   return name.startsWith(GROUP_DM_PREFIX)
 }
 
+/**
+ * Can this user see a group channel?
+ *
+ * An empty member list means the channel predates per-channel membership (or
+ * was deliberately left open) and stays visible to everyone — that keeps the
+ * channels people already use from vanishing. Once a channel has members, only
+ * they get in.
+ */
+export function canAccessChannel(memberIds: string[] | null | undefined, userId: string) {
+  if (!memberIds || memberIds.length === 0) return true
+  return memberIds.includes(userId)
+}
+
 export interface GroupDmMeta {
   gdm: true
   title: string

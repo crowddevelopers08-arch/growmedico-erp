@@ -42,6 +42,50 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const channel = await prisma.channel.findUnique({ where: { id } })
   if (!channel) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
+  const body = await req.json()
+  const { addMemberIds, removeMemberIds } = body as { addMemberIds?: string[]; removeMemberIds?: string[] }
+
+  // Group channels keep their roster on the channel row. Only an admin or the
+  // channel's creator may change who is in one.
+  if (!isGroupDmChannelName(channel.name) && !parseDirectChannelName(channel.name)) {
+    const isAdmin = session.user.role === "ADMIN"
+    if (!isAdmin && channel.createdById !== session.user.id) {
+      return NextResponse.json({ error: "Only an admin or the channel creator can change members" }, { status: 403 })
+    }
+
+    let members = [...channel.memberIds]
+    if (Array.isArray(addMemberIds) && addMemberIds.length > 0) {
+      members = Array.from(new Set([...members, ...addMemberIds.filter((id) => typeof id === "string")]))
+    }
+    if (Array.isArray(removeMemberIds) && removeMemberIds.length > 0) {
+      // The creator stays, so a channel can never end up with no way back in.
+      members = members.filter((id) => !removeMemberIds.includes(id) || id === channel.createdById)
+    }
+    // An empty roster would silently reopen the channel to everyone.
+    if (members.length === 0) {
+      return NextResponse.json({ error: "A channel needs at least one member" }, { status: 400 })
+    }
+
+    await prisma.channel.update({ where: { id }, data: { memberIds: members } })
+
+    const channelUsers = await prisma.user.findMany({
+      where: { id: { in: members } },
+      select: { id: true, email: true, employee: { select: { name: true, avatar: true } } },
+    })
+    const byId = new Map(channelUsers.map((user) => [user.id, user]))
+    return NextResponse.json({
+      memberIds: members,
+      groupMembers: members.map((userId) => {
+        const user = byId.get(userId)
+        return {
+          userId,
+          name: user?.employee?.name ?? user?.email ?? "Unknown",
+          avatar: user?.employee?.avatar ?? null,
+        }
+      }),
+    })
+  }
+
   if (!isGroupDmChannelName(channel.name)) {
     return NextResponse.json({ error: "Only group chats can be updated this way" }, { status: 400 })
   }
@@ -50,9 +94,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!meta || !meta.members.includes(session.user.id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-
-  const body = await req.json()
-  const { addMemberIds, removeMemberIds } = body as { addMemberIds?: string[]; removeMemberIds?: string[] }
 
   const isCreatorOrAdmin = channel.createdById === session.user.id || session.user.role === "ADMIN"
 

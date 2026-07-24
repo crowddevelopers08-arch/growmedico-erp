@@ -172,7 +172,7 @@ function EmployeesPageContent() {
       {/* Page Title */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Employees</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Employees</h1>
           <p className="text-sm text-muted-foreground">
             {isAdmin ? "Manage your team members and their information." : "View your team members and their information."}
           </p>
@@ -190,32 +190,32 @@ function EmployeesPageContent() {
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <div className="text-2xl font-semibold">{employees.length}</div>
-            <p className="text-sm text-muted-foreground">Total Employees</p>
+            <div className="text-stat font-semibold">{employees.length}</div>
+            <p className="text-2sm text-muted-foreground">Total Employees</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <div className="text-2xl font-semibold text-success">{statusCounts.present}</div>
-            <p className="text-sm text-muted-foreground">Present Today</p>
+            <div className="text-stat font-semibold text-success">{statusCounts.present}</div>
+            <p className="text-2sm text-muted-foreground">Present Today</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <div className="text-2xl font-semibold text-chart-1">{statusCounts.remote}</div>
-            <p className="text-sm text-muted-foreground">Working Remote</p>
+            <div className="text-stat font-semibold text-chart-1">{statusCounts.remote}</div>
+            <p className="text-2sm text-muted-foreground">Working Remote</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <div className="text-2xl font-semibold text-warning">{statusCounts.onLeave}</div>
-            <p className="text-sm text-muted-foreground">On Leave</p>
+            <div className="text-stat font-semibold text-warning">{statusCounts.onLeave}</div>
+            <p className="text-2sm text-muted-foreground">On Leave</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <div className="text-2xl font-semibold text-destructive">{statusCounts.absent}</div>
-            <p className="text-sm text-muted-foreground">Absent</p>
+            <div className="text-stat font-semibold text-destructive">{statusCounts.absent}</div>
+            <p className="text-2sm text-muted-foreground">Absent</p>
           </CardContent>
         </Card>
       </div>

@@ -103,6 +103,57 @@
   --sidebar-ring: #14B8A6;
 }
 
+/* ─── Type scale ──────────────────────────────────────────────────────
+   The only font sizes in the product. The default Tailwind ramp is
+   re-pointed at these values so every existing `text-*` utility lands on
+   an approved step, and the semantic aliases below cover the sizes the
+   ramp has no slot for (11px, 13px, 22px, 28px).
+
+     text-tiny    11/16   badges, chart axis, menu badge
+     text-xs      12/18   caption, helper text, error text, chart legend
+     text-2sm     13/20   small body, labels, table header, KPI/stat label
+     text-sm      14/22   normal body, table data, inputs, buttons
+     text-base    16/24   large body, chart title, large button
+     text-lg      18/26   sub heading (H4), card title, navbar title
+     text-xl      20/28   card title (H3)
+     text-modal   22/30   modal title
+     text-2xl     24/32   section title (H2)
+     text-stat    28/36   statistics value
+     text-3xl     32/40   page title (H1), KPI number
+     text-4xl     40/48   display heading                                 */
+@theme {
+  --text-tiny: 11px;
+  --text-tiny--line-height: 16px;
+  --text-xs: 12px;
+  --text-xs--line-height: 18px;
+  --text-2sm: 13px;
+  --text-2sm--line-height: 20px;
+  --text-sm: 14px;
+  --text-sm--line-height: 22px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 26px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-modal: 22px;
+  --text-modal--line-height: 30px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-stat: 28px;
+  --text-stat--line-height: 36px;
+  --text-3xl: 32px;
+  --text-3xl--line-height: 40px;
+  --text-4xl: 40px;
+  --text-4xl--line-height: 48px;
+  /* Nothing in the product is larger than the display heading. */
+  --text-5xl: initial;
+  --text-6xl: initial;
+  --text-7xl: initial;
+  --text-8xl: initial;
+  --text-9xl: initial;
+}
+
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback', system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;

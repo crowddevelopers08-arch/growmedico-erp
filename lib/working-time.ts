@@ -116,17 +116,29 @@ export function workingTimeStatus(
   return { remainingMs, overdue, deadlineEpoch, level }
 }
 
-/** "2d 4h 30m" style label for a working-ms span. Days are 9 office-hours long. */
+/** Zero-pad a unit to two digits, but only when it follows a larger one. */
+function pad(value: number, padded: boolean): string {
+  return padded ? String(value).padStart(2, "0") : String(value)
+}
+
+/**
+ * "2d 4h 30m 05s" style label for a working-ms span. Days are 9 office-hours
+ * long. Seconds are always shown (zero-padded once a larger unit precedes them)
+ * so the countdown visibly ticks.
+ */
 export function formatWorkingDuration(ms: number): string {
-  if (ms <= 0) return "0m"
-  const totalMinutes = Math.floor(ms / 60000)
-  const days = Math.floor((totalMinutes * 60000) / OFFICE_MS_PER_DAY)
+  if (ms <= 0) return "0s"
+  const days = Math.floor(ms / OFFICE_MS_PER_DAY)
   const afterDays = ms - days * OFFICE_MS_PER_DAY
   const hours = Math.floor(afterDays / (60 * 60 * 1000))
   const minutes = Math.floor((afterDays % (60 * 60 * 1000)) / 60000)
+  const seconds = Math.floor((afterDays % 60000) / 1000)
+  // Once a larger unit is in play every smaller one follows, so the label reads
+  // like a clock ("1d 8h 19m 42s") instead of skipping units ("1d 42s").
   const parts: string[] = []
   if (days > 0) parts.push(`${days}d`)
-  if (hours > 0) parts.push(`${hours}h`)
-  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`)
+  if (hours > 0 || parts.length > 0) parts.push(`${hours}h`)
+  if (minutes > 0 || parts.length > 0) parts.push(`${pad(minutes, parts.length > 0)}m`)
+  parts.push(`${pad(seconds, parts.length > 0)}s`)
   return parts.join(" ")
 }

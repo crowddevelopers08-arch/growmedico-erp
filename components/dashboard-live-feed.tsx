@@ -24,7 +24,7 @@ export function DashboardLiveFeed() {
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-base font-semibold">
           Live Activity
-          <span className="flex items-center gap-1 text-[11px] font-normal text-muted-foreground">
+          <span className="flex items-center gap-1 text-tiny font-normal text-muted-foreground">
             <Radio className={cn("size-3", connected ? "text-success" : "text-muted-foreground")} />
             {connected ? "Live" : "Reconnecting…"}
           </span>
@@ -57,7 +57,7 @@ export function DashboardLiveFeed() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium text-foreground">{notif.title}</span>
-                      <span className="shrink-0 text-[11px] text-muted-foreground">{relativeTime(notif.createdAt)}</span>
+                      <span className="shrink-0 text-tiny text-muted-foreground">{relativeTime(notif.createdAt)}</span>
                     </div>
                     <p className="line-clamp-1 text-xs text-muted-foreground">{notif.message}</p>
                   </div>

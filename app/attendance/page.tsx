@@ -224,7 +224,7 @@ function AttendancePageContent() {
       {/* Page Title */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Attendance</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Attendance</h1>
           <p className="text-sm text-muted-foreground">
             {isAdmin ? "Track and manage employee attendance records." : "View your attendance records."}
           </p>
@@ -284,8 +284,8 @@ function AttendancePageContent() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Present</p>
-                    <p className="text-2xl font-semibold text-success">{stats.present}</p>
+                    <p className="text-2sm font-medium text-muted-foreground">Present</p>
+                    <p className="text-stat font-semibold text-success">{stats.present}</p>
                   </div>
                   <div className="flex size-10 items-center justify-center rounded-lg bg-success/10">
                     <Users className="size-5 text-success" />
@@ -297,8 +297,8 @@ function AttendancePageContent() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Remote</p>
-                    <p className="text-2xl font-semibold text-chart-1">{stats.remote}</p>
+                    <p className="text-2sm font-medium text-muted-foreground">Remote</p>
+                    <p className="text-stat font-semibold text-chart-1">{stats.remote}</p>
                   </div>
                   <div className="flex size-10 items-center justify-center rounded-lg bg-chart-1/10">
                     <Users className="size-5 text-chart-1" />
@@ -310,8 +310,8 @@ function AttendancePageContent() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Absent</p>
-                    <p className="text-2xl font-semibold text-destructive">{stats.absent}</p>
+                    <p className="text-2sm font-medium text-muted-foreground">Absent</p>
+                    <p className="text-stat font-semibold text-destructive">{stats.absent}</p>
                   </div>
                   <div className="flex size-10 items-center justify-center rounded-lg bg-destructive/10">
                     <Users className="size-5 text-destructive" />
@@ -323,8 +323,8 @@ function AttendancePageContent() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Hours</p>
-                    <p className="text-2xl font-semibold">{stats.totalHours.toFixed(1)}h</p>
+                    <p className="text-2sm font-medium text-muted-foreground">Total Hours</p>
+                    <p className="text-stat font-semibold">{stats.totalHours.toFixed(1)}h</p>
                     {stats.totalOvertime > 0 && (
                       <p className="text-xs text-muted-foreground">+{stats.totalOvertime.toFixed(1)}h overtime</p>
                     )}
@@ -419,7 +419,7 @@ function AttendancePageContent() {
                                     alt="Punch In"
                                     className="size-8 rounded-md object-cover ring-2 ring-success/40 hover:ring-success transition-all"
                                   />
-                                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-success text-success-foreground text-[8px] font-bold">I</span>
+                                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-success text-success-foreground text-tiny font-bold">I</span>
                                 </button>
                               ) : record?.checkIn ? (
                                 <div className="size-8 rounded-md bg-muted flex items-center justify-center" title="No punch-in photo">
@@ -437,7 +437,7 @@ function AttendancePageContent() {
                                     alt="Punch Out"
                                     className="size-8 rounded-md object-cover ring-2 ring-warning/40 hover:ring-warning transition-all"
                                   />
-                                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-warning text-warning-foreground text-[8px] font-bold">O</span>
+                                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-warning text-warning-foreground text-tiny font-bold">O</span>
                                 </button>
                               ) : record?.checkOut ? (
                                 <div className="size-8 rounded-md bg-muted flex items-center justify-center" title="No punch-out photo">
@@ -618,37 +618,37 @@ function AttendancePageContent() {
               <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
                 <Card className="border-border/50">
                   <CardContent className="pt-6">
-                    <p className="text-sm font-medium text-muted-foreground">Present</p>
-                    <p className="text-2xl font-semibold text-success">{monthlyStats.present}</p>
-                    <p className="text-xs text-muted-foreground">days</p>
+                    <p className="text-2sm font-medium text-muted-foreground">Present</p>
+                    <p className="text-stat font-semibold text-success">{monthlyStats.present}</p>
+                    <p className="text-2sm text-muted-foreground">days</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border/50">
                   <CardContent className="pt-6">
-                    <p className="text-sm font-medium text-muted-foreground">Absent</p>
-                    <p className="text-2xl font-semibold text-destructive">{monthlyStats.absent}</p>
-                    <p className="text-xs text-muted-foreground">days</p>
+                    <p className="text-2sm font-medium text-muted-foreground">Absent</p>
+                    <p className="text-stat font-semibold text-destructive">{monthlyStats.absent}</p>
+                    <p className="text-2sm text-muted-foreground">days</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border/50">
                   <CardContent className="pt-6">
-                    <p className="text-sm font-medium text-muted-foreground">On Leave</p>
-                    <p className="text-2xl font-semibold text-warning">{monthlyStats.onLeave}</p>
-                    <p className="text-xs text-muted-foreground">days</p>
+                    <p className="text-2sm font-medium text-muted-foreground">On Leave</p>
+                    <p className="text-stat font-semibold text-warning">{monthlyStats.onLeave}</p>
+                    <p className="text-2sm text-muted-foreground">days</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border/50">
                   <CardContent className="pt-6">
-                    <p className="text-sm font-medium text-muted-foreground">Total Hours</p>
-                    <p className="text-2xl font-semibold">{monthlyStats.totalHours.toFixed(1)}h</p>
-                    <p className="text-xs text-muted-foreground">worked</p>
+                    <p className="text-2sm font-medium text-muted-foreground">Total Hours</p>
+                    <p className="text-stat font-semibold">{monthlyStats.totalHours.toFixed(1)}h</p>
+                    <p className="text-2sm text-muted-foreground">worked</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border/50">
                   <CardContent className="pt-6">
-                    <p className="text-sm font-medium text-muted-foreground">Overtime</p>
-                    <p className="text-2xl font-semibold text-chart-1">{monthlyStats.overtime.toFixed(1)}h</p>
-                    <p className="text-xs text-muted-foreground">extra</p>
+                    <p className="text-2sm font-medium text-muted-foreground">Overtime</p>
+                    <p className="text-stat font-semibold text-chart-1">{monthlyStats.overtime.toFixed(1)}h</p>
+                    <p className="text-2sm text-muted-foreground">extra</p>
                   </CardContent>
                 </Card>
               </div>
