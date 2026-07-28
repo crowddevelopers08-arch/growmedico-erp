@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
+    "seed:templates": "tsx prisma/seed-project-templates.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev"
   },
@@ -54,6 +55,8 @@
     "dotenv": "^17.3.1",
     "embla-carousel-react": "8.6.0",
     "input-otp": "1.4.2",
+    "livekit-client": "^2.21.0",
+    "livekit-server-sdk": "^2.17.0",
     "lucide-react": "^0.564.0",
     "next": "16.2.0",
     "next-auth": "^4.24.13",
@@ -69,7 +72,8 @@
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
     "web-push": "^3.6.7",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",

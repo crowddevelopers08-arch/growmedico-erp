@@ -1,0 +1,26 @@
+# Self-hosted LiveKit for the ERP calling system.
+#
+#   cd livekit && docker compose up -d
+#
+# LiveKit needs a wide UDP range for media (WebRTC). On a cloud host open
+# 7880/tcp (signal+API), 7881/tcp (TCP fallback) and 50000-50100/udp (RTP).
+# For local dev on one machine the defaults below just work.
+services:
+  livekit:
+    image: livekit/livekit-server:v1.8
+    command: --config /etc/livekit.yaml
+    restart: unless-stopped
+    ports:
+      - "7880:7880"            # HTTP signaling + server API
+      - "7881:7881"            # TCP fallback for restrictive networks
+      - "50000-50100:50000-50100/udp"  # RTP/RTCP media
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  # TURN/STUN relay for clients behind strict NAT/firewalls. Optional for LAN
+  # dev, strongly recommended in production.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"

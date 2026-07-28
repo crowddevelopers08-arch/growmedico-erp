@@ -41,6 +41,11 @@ interface HRContextType {
   salaryRecords: SalaryRecord[]
   processSalary: (id: string) => Promise<void>
   markSalaryPaid: (id: string) => Promise<void>
+  generatePayroll: (month: string, year: number) => Promise<{ created: number; skipped: number }>
+  recalculatePayroll: (month: string, year: number) => Promise<{ updated: number; total: number }>
+  updateSalary: (id: string, amounts: { baseSalary?: number; bonus?: number; overtime?: number; deductions?: number }) => Promise<void>
+  revertSalary: (id: string) => Promise<void>
+  deleteSalary: (id: string) => Promise<void>
   getSalaryByEmployee: (employeeId: string) => SalaryRecord[]
   refreshSalary: () => Promise<void>
 
@@ -230,6 +235,52 @@ export function HRProvider({ children }: { children: ReactNode }) {
     await refreshSalary()
   }, [refreshSalary])
 
+  // Bulk-create pending records for a period from each employee's monthly
+  // salary. Returns how many were created vs. already present, for the toast.
+  const generatePayroll = useCallback(async (month: string, year: number) => {
+    const result = await apiFetch<{ created: number; skipped: number }>("/api/salary", {
+      method: "POST",
+      body: JSON.stringify({ action: "generate", month, year }),
+    })
+    await refreshSalary()
+    return result
+  }, [refreshSalary])
+
+  const updateSalary = useCallback(async (
+    id: string,
+    amounts: { baseSalary?: number; bonus?: number; overtime?: number; deductions?: number },
+  ) => {
+    await apiFetch(`/api/salary/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ action: "update", ...amounts }),
+    })
+    await refreshSalary()
+  }, [refreshSalary])
+
+  // Refresh net salary for a whole period from current attendance. Returns how
+  // many records actually changed, for the toast.
+  const recalculatePayroll = useCallback(async (month: string, year: number) => {
+    const result = await apiFetch<{ updated: number; total: number }>("/api/salary", {
+      method: "POST",
+      body: JSON.stringify({ action: "recalculate", month, year }),
+    })
+    await refreshSalary()
+    return result
+  }, [refreshSalary])
+
+  const revertSalary = useCallback(async (id: string) => {
+    await apiFetch(`/api/salary/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ action: "revert" }),
+    })
+    await refreshSalary()
+  }, [refreshSalary])
+
+  const deleteSalary = useCallback(async (id: string) => {
+    await apiFetch(`/api/salary/${id}`, { method: "DELETE" })
+    await refreshSalary()
+  }, [refreshSalary])
+
   const getSalaryByEmployee = useCallback((employeeId: string) => {
     return salaryRecords.filter((r) => r.employeeId === employeeId)
   }, [salaryRecords])
@@ -277,6 +328,11 @@ export function HRProvider({ children }: { children: ReactNode }) {
         salaryRecords,
         processSalary,
         markSalaryPaid,
+        generatePayroll,
+        recalculatePayroll,
+        updateSalary,
+        revertSalary,
+        deleteSalary,
         getSalaryByEmployee,
         refreshSalary,
         activities,

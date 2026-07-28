@@ -115,8 +115,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         priority: body.priority,
         status: body.status,
         stage: body.stage,
+        tags: Array.isArray(body.tags) ? body.tags : undefined,
+        startDate: body.startDate,
         dueDate: body.dueDate,
         estimatedHours: body.estimatedHours,
+        trackedSeconds: body.trackedSeconds,
+        timerStartedAt: body.timerStartedAt === null ? null : body.timerStartedAt ? new Date(body.timerStartedAt) : undefined,
+        reminderAt: body.reminderAt === null ? null : body.reminderAt ? new Date(body.reminderAt) : undefined,
+        recurrenceRule: body.recurrenceRule,
+        customFields: body.customFields,
+        orderIndex: body.orderIndex,
         assignedToId: body.assignedToId,
         projectId: body.projectId,
         collaborators: collaboratorIds,
@@ -127,15 +135,54 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         description: body.description,
         priority: body.priority,
         status: body.status,
+        stage: body.stage,
+        tags: Array.isArray(body.tags) ? body.tags : undefined,
+        startDate: body.startDate,
         dueDate: body.dueDate,
         estimatedHours: body.estimatedHours,
+        trackedSeconds: body.trackedSeconds,
+        timerStartedAt: body.timerStartedAt === null ? null : body.timerStartedAt ? new Date(body.timerStartedAt) : undefined,
+        customFields: body.customFields,
       }
-    : { status: body.status }
+    : {
+        // Assignees can move their own work across the board and run its timer,
+        // which is the whole point of the kanban and the tracker.
+        status: body.status,
+        stage: body.stage,
+        trackedSeconds: body.trackedSeconds,
+        timerStartedAt: body.timerStartedAt === null ? null : body.timerStartedAt ? new Date(body.timerStartedAt) : undefined,
+      }
+
+  const changes = Object.fromEntries(Object.entries(allowedFields).filter(([, v]) => v !== undefined))
 
   const updated = await prisma.task.update({
     where: { id },
-    data: Object.fromEntries(Object.entries(allowedFields).filter(([, v]) => v !== undefined)),
+    data: changes,
   })
+
+  // History for the task detail panel. Only the fields worth reading back are
+  // logged — timer ticks and ordering would bury the interesting entries.
+  const TRACKED_FIELDS = ["title", "status", "stage", "priority", "dueDate", "startDate", "assignedToId", "estimatedHours"] as const
+  const historyRows = TRACKED_FIELDS.flatMap((field) => {
+    if (!(field in changes)) return []
+    const before = task[field]
+    const after = updated[field]
+    if (String(before ?? "") === String(after ?? "")) return []
+    return [
+      {
+        taskId: id,
+        actorId: session.user.id,
+        actorName: session.user.name ?? "Someone",
+        field,
+        oldValue: before === null || before === undefined ? null : String(before),
+        newValue: after === null || after === undefined ? null : String(after),
+      },
+    ]
+  })
+
+  if (historyRows.length) {
+    await prisma.taskHistory.createMany({ data: historyRows }).catch(() => {})
+  }
 
   if (newlyAssignedEmployeeId || newlyAddedCollaboratorIds.length > 0) {
     const assigner = await prisma.user.findUnique({

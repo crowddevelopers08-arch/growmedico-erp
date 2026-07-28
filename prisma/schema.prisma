@@ -16,9 +16,41 @@ model User {
   employee      Employee?      @relation(fields: [employeeId], references: [id])
   notifications Notification[]
   pushSubscriptions PushSubscription[]
+  outgoingCalls Call[]         @relation("CallsMade")
+  incomingCalls Call[]         @relation("CallsReceived")
   preferences   Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+}
+
+// One row per 1:1 call. This IS the call history — each record carries the full
+// lifecycle (who, type, status, timings, duration), so a separate CallHistory
+// table would only duplicate it. The history API reads from here.
+model Call {
+  id         String   @id @default(cuid())
+  // Deterministic LiveKit room the two peers join. Also the signaling key.
+  roomName   String   @unique
+  callerId   String
+  caller     User     @relation("CallsMade", fields: [callerId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User     @relation("CallsReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+  // "voice" | "video"
+  type       String   @default("voice")
+  // ringing | accepted | rejected | missed | canceled | ended | busy | failed
+  status     String   @default("ringing")
+  startedAt  DateTime @default(now())
+  acceptedAt DateTime?
+  endedAt    DateTime?
+  // Talk time in seconds (acceptedAt → endedAt). 0 for calls never answered.
+  durationSec Int     @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Active-call lookups (busy check) and per-user history both hit these.
+  @@index([callerId, status])
+  @@index([receiverId, status])
+  @@index([callerId, createdAt])
+  @@index([receiverId, createdAt])
 }
 
 model PushSubscription {
@@ -162,17 +194,56 @@ model Task {
   // after reassigning the task down to an employee.
   managerId    String?
   priority     String         @default("medium")
+  // Stage and status are stored as names, not ids. They are unique per project
+  // (see ProjectStage / ProjectAttribute), which keeps every existing row and
+  // query working while the new models supply order, colour and semantics.
   status       String         @default("pending")
   stage        String         @default("Unstaged Tasks")
+  tags         String[]       @default([])
+  startDate     String?
   dueDate       String?
   // Time-allocation countdown: estimated working hours (10:00-19:00 IST,
   // Sundays excluded). The countdown runs from createdAt.
   estimatedHours Float?
+  // Stopwatch. trackedSeconds is the banked total; timerStartedAt is set while
+  // the timer runs and folded into trackedSeconds when it stops, so elapsed
+  // time survives a reload.
+  trackedSeconds Int          @default(0)
+  timerStartedAt DateTime?
+  reminderAt    DateTime?
+  // iCal-style RRULE ("FREQ=WEEKLY;BYDAY=MO"). Null means the task is one-off.
+  recurrenceRule String?
+  // Per-project custom fields, keyed by field name.
+  customFields  Json?
+  parentTaskId  String?
+  parentTask    Task?          @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks      Task[]         @relation("TaskSubtasks")
+  orderIndex    Int            @default(0)
   collaborators String[]       @default([])
   attachments   Json?
   comments      TaskComment[]
+  history       TaskHistory[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+
+  @@index([projectId, stage])
+  @@index([parentTaskId])
+}
+
+// Audit trail behind the task detail panel's History tab. One row per changed
+// field so the panel can render "X moved status from A to B".
+model TaskHistory {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId   String
+  actorName String
+  field     String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
 }
 
 model ClientProject {
@@ -183,14 +254,125 @@ model ClientProject {
   status      String          @default("open")
   priority    String          @default("medium")
   dueDate     String?
+  startDate   String?
   createdById String
+  // "public" = visible to the whole workspace, "private" = members only.
+  visibility  String          @default("public")
+  // Employee ids. Owner is accountable for the project; defaultAssignee
+  // pre-fills the assignee on new tasks.
+  ownerId           String?
+  defaultAssigneeId String?
+  tags        String[]        @default([])
+  // Legacy ordered stage names. ProjectStage is the source of truth for order
+  // and colour; this array is kept in sync so older queries keep working.
   stages      String[]        @default(["Unstaged Tasks"])
+  projectStages ProjectStage[]
+  attributes  ProjectAttribute[]
   tasks       Task[]
   members     ProjectMember[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   @@unique([clientName, name])
+}
+
+// One ordered, coloured column of the delivery pipeline (Discovery, Planning,
+// Design...). Tasks point at it by name via Task.stage.
+model ProjectStage {
+  id         String        @id @default(cuid())
+  projectId  String
+  project    ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String
+  color      String        @default("#64748b")
+  orderIndex Int           @default(0)
+  createdAt  DateTime      @default(now())
+
+  @@unique([projectId, name])
+  @@index([projectId, orderIndex])
+}
+
+// The selectable option sets a project defines for itself. One table covers all
+// six lists the create wizard collects: status/tag/priority at project scope and
+// at task scope. Tasks and projects reference these by name.
+model ProjectAttribute {
+  id         String        @id @default(cuid())
+  projectId  String
+  project    ClientProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // "project" | "task"
+  scope      String
+  // "status" | "tag" | "priority"
+  kind       String
+  name       String
+  color      String        @default("#64748b")
+  orderIndex Int           @default(0)
+  // Marks a status that counts as done, so progress and the dashboard's
+  // "completed" figure don't have to hardcode the word "completed".
+  isTerminal Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+
+  @@unique([projectId, scope, kind, name])
+  @@index([projectId, scope, kind, orderIndex])
+}
+
+// A blueprint a new project can be built from. Bundles stages, attribute option
+// sets and starter tasks, all cloned into real rows at creation time.
+model ProjectTemplate {
+  id          String              @id @default(cuid())
+  name        String              @unique
+  description String?
+  category    String              @default("General")
+  tag         String?
+  coverImage  String?
+  // Built-in templates ship with the app and can't be edited away by users.
+  isBuiltIn   Boolean             @default(false)
+  createdById String?
+  stages      TemplateStage[]
+  attributes  TemplateAttribute[]
+  tasks       TemplateTask[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model TemplateStage {
+  id         String          @id @default(cuid())
+  templateId String
+  template   ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  name       String
+  color      String          @default("#64748b")
+  orderIndex Int             @default(0)
+
+  @@unique([templateId, name])
+}
+
+model TemplateAttribute {
+  id         String          @id @default(cuid())
+  templateId String
+  template   ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  scope      String
+  kind       String
+  name       String
+  color      String          @default("#64748b")
+  orderIndex Int             @default(0)
+  isTerminal Boolean         @default(false)
+
+  @@unique([templateId, scope, kind, name])
+}
+
+// Starter task. Carries no assignee or dates — those only exist once the task
+// is cloned into a real project.
+model TemplateTask {
+  id          String          @id @default(cuid())
+  templateId  String
+  template    ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  priority    String          @default("medium")
+  stageName   String?
+  statusName  String?
+  estimatedHours Float?
+  orderIndex  Int             @default(0)
+
+  @@index([templateId, orderIndex])
 }
 
 model ProjectMember {

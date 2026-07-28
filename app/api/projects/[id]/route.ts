@@ -23,6 +23,16 @@ const memberInclude = {
       createdAt: "asc" as const,
     },
   },
+  projectStages: {
+    orderBy: {
+      orderIndex: "asc" as const,
+    },
+  },
+  attributes: {
+    orderBy: {
+      orderIndex: "asc" as const,
+    },
+  },
 } as const
 
 function normalizeMemberIds(value: unknown) {
@@ -44,17 +54,67 @@ async function validateMemberIds(memberIds: string[]) {
   return count === memberIds.length
 }
 
-function normalizeStages(value: unknown) {
+/** Accepts both the wizard's {name, color} objects and plain stage-name strings. */
+function normalizeStages(value: unknown): Array<{ name: string; color: string }> {
   if (!Array.isArray(value)) return []
 
-  return Array.from(
-    new Set(
-      value
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean)
-    )
-  )
+  const seen = new Set<string>()
+  const stages: Array<{ name: string; color: string }> = []
+
+  for (const item of value) {
+    const name = typeof item === "string" ? item.trim() : String((item as { name?: unknown })?.name ?? "").trim()
+    if (!name || seen.has(name.toLowerCase())) continue
+    seen.add(name.toLowerCase())
+    const color =
+      typeof item === "object" && item !== null && typeof (item as { color?: unknown }).color === "string"
+        ? (item as { color: string }).color
+        : "#64748b"
+    stages.push({ name, color })
+  }
+
+  return stages
+}
+
+interface AttributeInput {
+  scope: string
+  kind: string
+  name: string
+  color: string
+  orderIndex: number
+  isTerminal: boolean
+}
+
+function normalizeAttributes(value: unknown): AttributeInput[] {
+  if (!Array.isArray(value)) return []
+
+  const seen = new Set<string>()
+  const rows: AttributeInput[] = []
+
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) continue
+    const record = item as Record<string, unknown>
+    const scope = String(record.scope ?? "")
+    const kind = String(record.kind ?? "")
+    const name = String(record.name ?? "").trim()
+    if (!name) continue
+    if (scope !== "project" && scope !== "task") continue
+    if (kind !== "status" && kind !== "tag" && kind !== "priority") continue
+
+    const key = `${scope}:${kind}:${name.toLowerCase()}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    rows.push({
+      scope,
+      kind,
+      name,
+      color: typeof record.color === "string" ? record.color : "#64748b",
+      orderIndex: rows.length,
+      isTerminal: record.isTerminal === true,
+    })
+  }
+
+  return rows
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -96,12 +156,46 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
+  let stagesToApply: Array<{ name: string; color: string }> | null = null
+
   if (body.stages !== undefined) {
     const stages = normalizeStages(body.stages)
     if (stages.length === 0) {
       return NextResponse.json({ error: "At least one stage is required" }, { status: 400 })
     }
-    data.stages = stages
+    stagesToApply = stages
+    // The legacy name array stays the mirror of projectStages.
+    data.stages = stages.map((stage) => stage.name)
+    data.projectStages = {
+      deleteMany: {},
+      create: stages.map((stage, index) => ({
+        name: stage.name,
+        color: stage.color,
+        orderIndex: index,
+      })),
+    }
+  }
+
+  if (body.attributes !== undefined) {
+    const attributes = normalizeAttributes(body.attributes)
+    data.attributes = {
+      deleteMany: {},
+      create: attributes,
+    }
+  }
+
+  // Plain scalar fields the Info tab and project settings edit.
+  const scalarFields = ["description", "status", "priority", "dueDate", "startDate", "visibility"] as const
+  for (const field of scalarFields) {
+    if (body[field] !== undefined) {
+      data[field] = typeof body[field] === "string" ? body[field].trim() || null : body[field]
+    }
+  }
+
+  if (body.ownerId !== undefined) data.ownerId = body.ownerId || null
+  if (body.defaultAssigneeId !== undefined) data.defaultAssigneeId = body.defaultAssigneeId || null
+  if (body.tags !== undefined && Array.isArray(body.tags)) {
+    data.tags = body.tags.filter((tag: unknown): tag is string => typeof tag === "string" && tag.trim().length > 0)
   }
 
   const updated = await prisma.clientProject.update({
@@ -109,6 +203,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data,
     include: memberInclude,
   })
+
+  // A removed stage would leave its tasks pointing at a column that no longer
+  // renders, so sweep them into the first stage rather than losing them.
+  if (stagesToApply) {
+    const names = stagesToApply.map((stage) => stage.name)
+    await prisma.task.updateMany({
+      where: { projectId: id, stage: { notIn: names } },
+      data: { stage: names[0] },
+    })
+  }
 
   if (addedMemberIds.length > 0) {
     const userIdByEmployeeId = await getUserIdsForEmployees(addedMemberIds)

@@ -5,6 +5,8 @@ import {
   CalendarIcon, Clock, CircleDot, CheckCircle2,
   AlertCircle, MessageSquare, Pencil, Trash2, Check, X,
   Play, Pause, FileText, Download, Handshake,
+  // Aliased — `History` collides with the DOM History interface in this file's scope.
+  History as HistoryIcon,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -24,8 +26,20 @@ import {
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { ChatInput, type MentionUser, type SendData, type Attachment } from "@/components/chat-input"
-import type { Task, TaskStatus, TaskPriority, TaskComment, Employee } from "@/lib/types"
+import type { Task, TaskStatus, TaskPriority, TaskComment, TaskHistoryEntry, Employee } from "@/lib/types"
 import { WorkingTimeBadge } from "@/components/working-time-badge"
+import { TaskTimeTracker } from "@/components/task-time-tracker"
+
+/** Turns a stored field name into the label shown in the History tab. */
+function historyFieldLabel(field: string) {
+  const labels: Record<string, string> = {
+    assignedToId: "assignee",
+    dueDate: "due date",
+    startDate: "start date",
+    estimatedHours: "estimate",
+  }
+  return labels[field] ?? field.replace(/([A-Z])/g, " $1").toLowerCase()
+}
 
 interface TaskDetailSheetProps {
   task: Task | null
@@ -81,6 +95,33 @@ const statusConfig: Record<TaskStatus, { label: string; icon: React.ElementType;
 }
 
 const statuses: TaskStatus[] = ["pending", "in_progress", "completed", "cancelled"]
+
+// Projects can define their own status/priority names (via the create wizard and
+// templates), so a task may carry a value that isn't one of the built-ins above.
+// These resolve any name to a renderable config instead of indexing blindly and
+// crashing on `.icon`/`.label`.
+function titleCase(value: string) {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function getStatusConfig(status: string) {
+  return (
+    statusConfig[status as TaskStatus] ?? {
+      label: titleCase(status),
+      icon: CircleDot,
+      class: "bg-muted text-muted-foreground border-border",
+    }
+  )
+}
+
+function getPriorityConfig(priority: string) {
+  return (
+    priorityConfig[priority as TaskPriority] ?? {
+      label: titleCase(priority),
+      class: "bg-muted text-muted-foreground border-border",
+    }
+  )
+}
 
 const IST = "Asia/Kolkata"
 
@@ -158,7 +199,14 @@ export function TaskDetailSheet({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState("")
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null)
+  const [sidePanel, setSidePanel] = useState<"comments" | "history">("comments")
+  const [history, setHistory] = useState<TaskHistoryEntry[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
   const commentsEndRef = useRef<HTMLDivElement>(null)
+
+  // Time tracking is allowed for anyone who can act on the task: an admin, or the
+  // person it is assigned to.
+  const canTrackTime = Boolean(isAdmin || (task && task.assignedToId === session?.user?.employeeId))
 
   const loadComments = useCallback(async () => {
     if (!task) return
@@ -171,9 +219,25 @@ export function TaskDetailSheet({
     }
   }, [task])
 
+  const loadHistory = useCallback(async () => {
+    if (!task) return
+    setLoadingHistory(true)
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/history`)
+      if (res.ok) setHistory(await res.json())
+    } finally {
+      setLoadingHistory(false)
+    }
+  }, [task])
+
   useEffect(() => {
-    if (open && task) { setComments([]); loadComments() }
+    if (open && task) { setComments([]); setHistory([]); setSidePanel("comments"); loadComments() }
   }, [open, task, loadComments])
+
+  // Fetch history lazily — only when the tab is first opened for this task.
+  useEffect(() => {
+    if (open && task && sidePanel === "history") loadHistory()
+  }, [open, task, sidePanel, loadHistory])
 
   useEffect(() => {
     fetch("/api/users").then((r) => r.json()).then(setMentionUsers).catch(() => {})
@@ -225,7 +289,9 @@ export function TaskDetailSheet({
 
   if (!task) return null
 
-  const StatusIcon = statusConfig[task.status].icon
+  const statusInfo = getStatusConfig(task.status)
+  const priorityInfo = getPriorityConfig(task.priority)
+  const StatusIcon = statusInfo.icon
   const isOverdue = task.dueDate && task.status !== "completed" && task.status !== "cancelled" && new Date(task.dueDate) < new Date()
   const currentUserId = session?.user?.id
   const projectName = task.clientName && task.projectName
@@ -287,11 +353,11 @@ export function TaskDetailSheet({
                   Project: {projectName}
                 </Badge>
               )}
-              <Badge variant="outline" className={`gap-1 ${priorityConfig[task.priority].class}`}>
-                {priorityConfig[task.priority].label}
+              <Badge variant="outline" className={`gap-1 ${priorityInfo.class}`}>
+                {priorityInfo.label}
               </Badge>
-              <Badge variant="outline" className={`gap-1 ${statusConfig[task.status].class}`}>
-                <StatusIcon className="size-3" />{statusConfig[task.status].label}
+              <Badge variant="outline" className={`gap-1 ${statusInfo.class}`}>
+                <StatusIcon className="size-3" />{statusInfo.label}
               </Badge>
               {isOverdue && <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">Overdue</Badge>}
               <WorkingTimeBadge task={task} intervalMs={1000} />
@@ -349,19 +415,86 @@ export function TaskDetailSheet({
               <Select value={task.status} onValueChange={(v) => handleStatusChange(v as TaskStatus)} disabled={statusUpdating}>
                 <SelectTrigger className="h-7 text-xs w-36"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {statuses.map((s) => <SelectItem key={s} value={s} className="text-xs">{statusConfig[s].label}</SelectItem>)}
+                  {/* Include the task's own status even when it's a project-defined
+                      name outside the built-in four, so it shows in the trigger. */}
+                  {Array.from(new Set<string>([...statuses, task.status])).map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs">{getStatusConfig(s).label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="mt-3">
+              <TaskTimeTracker task={task} canTrack={canTrackTime} />
+            </div>
           </SheetHeader>
 
-          <div className="flex items-center gap-2 px-6 py-3 border-b border-border/50 bg-muted/30">
-            <MessageSquare className="size-4 text-muted-foreground" />
-            <span className="text-sm font-medium">
+          {/* Comments and History share the panel below the header, the way the
+              reference flow splits them. */}
+          <div className="flex items-center gap-1 px-6 py-2 border-b border-border/50 bg-muted/30">
+            <Button
+              variant={sidePanel === "comments" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 gap-1.5 text-sm"
+              onClick={() => setSidePanel("comments")}
+            >
+              <MessageSquare className="size-4" />
               Comments {comments.length > 0 && <span className="text-muted-foreground">({comments.length})</span>}
-            </span>
+            </Button>
+            <Button
+              variant={sidePanel === "history" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 gap-1.5 text-sm"
+              onClick={() => setSidePanel("history")}
+            >
+              <HistoryIcon className="size-4" />
+              History {history.length > 0 && <span className="text-muted-foreground">({history.length})</span>}
+            </Button>
           </div>
 
+          {sidePanel === "history" ? (
+            <ScrollArea className="flex-1 min-h-0 px-6 py-4">
+              {loadingHistory ? (
+                <div className="flex h-20 items-center justify-center text-sm text-muted-foreground">Loading history...</div>
+              ) : history.length === 0 ? (
+                <div className="flex h-20 items-center justify-center text-center text-sm text-muted-foreground">
+                  No changes recorded yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {history.map((entry) => (
+                    <div key={entry.id} className="flex gap-3 border-b border-border/50 pb-3 last:border-0">
+                      <div className="mt-1.5 size-2 shrink-0 rounded-full bg-muted-foreground/40" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm wrap-break-word">
+                          <span className="font-medium">{entry.actorName}</span>{" "}
+                          changed <span className="font-medium">{historyFieldLabel(entry.field)}</span>
+                          {entry.oldValue ? (
+                            <>
+                              {" "}from <span className="text-muted-foreground">{entry.oldValue}</span>
+                            </>
+                          ) : null}
+                          {entry.newValue ? (
+                            <>
+                              {" "}to <span className="text-foreground">{entry.newValue}</span>
+                            </>
+                          ) : null}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {new Date(entry.createdAt).toLocaleString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          ) : (
           <ScrollArea className="flex-1 min-h-0 px-6 py-4">
             {loadingComments ? (
               <div className="flex items-center justify-center h-20 text-sm text-muted-foreground">Loading comments...</div>
@@ -470,10 +603,12 @@ export function TaskDetailSheet({
               </div>
             )}
           </ScrollArea>
+          )}
 
           <Separator />
 
-          <div className="px-6 py-4 shrink-0">
+          {/* The composer belongs to the Comments tab; History is read-only. */}
+          <div className={cn("px-6 py-4 shrink-0", sidePanel === "history" && "hidden")}>
             <div className="flex items-start gap-3">
               {/* Boxed to the composer pill's height so the avatar centres on the
                   input row and stays put as the textarea grows. */}

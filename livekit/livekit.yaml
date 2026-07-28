@@ -1,0 +1,31 @@
+# LiveKit server config. The api key/secret pair here MUST match the values in
+# your Next .env (LIVEKIT_API_KEY / LIVEKIT_API_SECRET). Rotate these before
+# going to production — anyone with the secret can mint room tokens.
+port: 7880
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  # Set to your server's PUBLIC ip in production so remote clients can reach
+  # media. Leave commented for local single-machine dev.
+  # use_external_ip: true
+
+# Coordinates multi-node scale-out and stores room state. Points at the redis
+# service in docker-compose. Fine to remove for a single-node dev setup.
+redis:
+  address: redis:6379
+
+keys:
+  # key: secret  — change both, keep them >= 32 chars for the secret.
+  devkey: devsecret_change_me_to_a_long_random_string_min_32_chars
+
+# Built-in TURN. Enable + point at a real domain with TLS in production so
+# calls survive strict corporate firewalls.
+turn:
+  enabled: false
+  # domain: turn.yourcompany.com
+  # tls_port: 5349
+  # udp_port: 3478
+
+logging:
+  level: info

@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { SessionProvider } from '@/components/session-provider'
 import { ThemeProvider } from '@/components/theme-provider'
 import { NotificationProvider } from '@/lib/notification-context'
+import { CallProvider } from '@/components/call/call-provider'
 import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
@@ -50,7 +51,9 @@ export default function RootLayout({
         >
           <SessionProvider>
             <NotificationProvider>
-              {children}
+              <CallProvider>
+                {children}
+              </CallProvider>
             </NotificationProvider>
           </SessionProvider>
           <Toaster />

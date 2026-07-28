@@ -8,6 +8,7 @@ import {
   FolderKanban,
   Handshake,
   Info,
+  LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
   Layers,
@@ -22,6 +23,9 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { CsmPanel, projectBelongsToCsm } from "@/components/csm-panel"
+import { ProjectWizard } from "@/components/project-wizard"
+import { ProjectDashboard } from "@/components/project-dashboard"
+import { ProjectKanban } from "@/components/project-kanban"
 import { canManageDelivery } from "@/lib/permissions"
 import { TaskDetailSheet } from "@/components/task-detail-sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -39,11 +43,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useHR } from "@/lib/hr-context"
 import { cn } from "@/lib/utils"
-import { taskCreateSchema, projectCreateSchema, firstIssueMessage } from "@/lib/validations"
+import { taskCreateSchema, firstIssueMessage } from "@/lib/validations"
+import { labelFor } from "@/lib/project-defaults"
 import type { ClientProject, Employee, ProjectStatus, Task, TaskPriority, TaskStatus } from "@/lib/types"
 
 type ProjectWithCount = ClientProject & { _count?: { tasks: number } }
-type ViewMode = "tasks" | "table" | "info"
+type ViewMode = "dashboard" | "tasks" | "kanban" | "table" | "info"
 
 const FALLBACK_STAGE = "Unstaged Tasks"
 
@@ -175,17 +180,12 @@ function ProjectsPageContent() {
   const [stagesDialogOpen, setStagesDialogOpen] = useState(false)
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
-  const [projectSaving, setProjectSaving] = useState(false)
   const [membersSaving, setMembersSaving] = useState(false)
   const [stagesSaving, setStagesSaving] = useState(false)
   const [taskSaving, setTaskSaving] = useState(false)
   const [projectDeleting, setProjectDeleting] = useState(false)
   const [taskDeleting, setTaskDeleting] = useState(false)
 
-  const [projectClientName, setProjectClientName] = useState("")
-  const [projectDescription, setProjectDescription] = useState("")
-  const [projectDueDate, setProjectDueDate] = useState("")
-  const [projectPriority, setProjectPriority] = useState<TaskPriority>("medium")
   const [projectMemberIds, setProjectMemberIds] = useState<string[]>([])
 
   const [editableStages, setEditableStages] = useState<string[]>([])
@@ -325,11 +325,9 @@ function ProjectsPageContent() {
     )
   }
 
+  // The create flow lives in ProjectWizard now; this only clears the member
+  // selection shared with the Manage Members dialog.
   const resetProjectForm = () => {
-    setProjectClientName("")
-    setProjectDescription("")
-    setProjectDueDate("")
-    setProjectPriority("medium")
     setProjectMemberIds([])
   }
 
@@ -385,45 +383,6 @@ function ProjectsPageContent() {
 
   const removeEditableStage = (stage: string) => {
     setEditableStages((prev) => prev.filter((item) => item !== stage))
-  }
-
-  const handleProjectCreate = async () => {
-    const parsed = projectCreateSchema.safeParse({
-      clientName: projectClientName.trim(),
-      name: projectClientName.trim(),
-      description: projectDescription.trim() || null,
-      dueDate: projectDueDate || null,
-      priority: projectPriority,
-      status: "in_progress",
-      memberIds: projectMemberIds,
-    })
-    if (!parsed.success) {
-      toast.error(firstIssueMessage(parsed.error))
-      return
-    }
-
-    setProjectSaving(true)
-    try {
-      const response = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      })
-
-      const payload = await response.json()
-      if (!response.ok) {
-        toast.error(payload.error ?? "Failed to create project")
-        return
-      }
-
-      await loadProjects()
-      resetProjectForm()
-      setProjectDialogOpen(false)
-      setSelectedProjectId(payload.id)
-      toast.success("Project created")
-    } finally {
-      setProjectSaving(false)
-    }
   }
 
   const handleProjectMembersSave = async () => {
@@ -736,7 +695,7 @@ function ProjectsPageContent() {
                     <div>
                       <p className="text-xl font-semibold">{project.name}</p>
                       <p className="text-sm text-muted-foreground">{project.clientName}</p>
-                      <Chip className="mt-3 border-border bg-muted/50 text-foreground">{projectStatuses[project.status]}</Chip>
+                      <Chip className="mt-3 border-border bg-muted/50 text-foreground">{projectStatuses[project.status] ?? labelFor(project.status)}</Chip>
                     </div>
                     <Chip className={priorityClasses[project.priority]}>{project.priority}</Chip>
                   </div>
@@ -792,7 +751,9 @@ function ProjectsPageContent() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3 @3xl:max-w-[420px] @3xl:justify-end">
+                    <Button variant={viewMode === "dashboard" ? "default" : "outline"} onClick={() => setViewMode("dashboard")}><LayoutDashboard className="mr-2 size-4" />Dashboard</Button>
                     <Button variant={viewMode === "tasks" ? "default" : "outline"} onClick={() => setViewMode("tasks")}><ClipboardList className="mr-2 size-4" />Tasks</Button>
+                    <Button variant={viewMode === "kanban" ? "default" : "outline"} onClick={() => setViewMode("kanban")}><FolderKanban className="mr-2 size-4" />Kanban</Button>
                     <Button variant={viewMode === "table" ? "default" : "outline"} onClick={() => setViewMode("table")}><TableProperties className="mr-2 size-4" />Table</Button>
                     <Button variant={viewMode === "info" ? "default" : "outline"} onClick={() => setViewMode("info")}><Info className="mr-2 size-4" />Info</Button>
                     {canManageProjects && <Button variant="outline" className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" onClick={openMembersDialog}><Users className="mr-2 size-4" />Members</Button>}
@@ -804,6 +765,22 @@ function ProjectsPageContent() {
               </div>
 
               <div className="p-4 sm:p-6">
+                {viewMode === "dashboard" && (
+                  <ProjectDashboard project={selectedProject} tasks={selectedProjectTasks} />
+                )}
+
+                {viewMode === "kanban" && (
+                  <ProjectKanban
+                    project={selectedProject}
+                    tasks={selectedProjectTasks}
+                    employees={employees}
+                    canEdit={canManageProjects}
+                    onOpenTask={(task) => { setDetailTask(task); setDetailOpen(true) }}
+                    onMoveTask={(task, stage) => void moveTaskStage(task, stage)}
+                    onAddTask={openAddTaskForStage}
+                  />
+                )}
+
                 {viewMode === "tasks" && (
                   <div className="space-y-5">
                     <div className="flex flex-col gap-3 @2xl:flex-row @2xl:items-center">
@@ -838,7 +815,7 @@ function ProjectsPageContent() {
                     <div className="space-y-3 rounded-[26px] border bg-muted/20 p-3">
                       {visibleStages.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No stages yet. Use "Manage Stages" to add one.</div> : selectedStageTasks.length === 0 ? <div className="rounded-2xl border border-dashed bg-background/70 p-8 text-center text-muted-foreground">No tasks in this stage yet.</div> : selectedStageTasks.map((task) => {
                         const employee = employees.find((item) => item.id === task.assignedToId)
-                        return <div key={task.id} className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{task.title}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{employee?.name ?? "Unassigned"}</span><span>/</span><span>{formatDate(task.dueDate)}</span><span>/</span><span>{taskStatuses[task.status]}</span></div></div>{canManageProjects && <Select value={task.stage || FALLBACK_STAGE} onValueChange={(value) => moveTaskStage(task, value)}><SelectTrigger className="w-[180px] bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select>}<Button variant="ghost" className="text-primary hover:text-primary" onClick={() => { setDetailTask(task); setDetailOpen(true) }}>Open</Button>{canManageProjects && <Button variant="ghost" onClick={() => openEditTask(task)}>Edit</Button>}</div>
+                        return <div key={task.id} className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3"><div className="min-w-0 flex-1"><p className="truncate text-lg font-semibold">{task.title}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{employee?.name ?? "Unassigned"}</span><span>/</span><span>{formatDate(task.dueDate)}</span><span>/</span><span>{taskStatuses[task.status] ?? labelFor(task.status)}</span></div></div>{canManageProjects && <Select value={task.stage || FALLBACK_STAGE} onValueChange={(value) => moveTaskStage(task, value)}><SelectTrigger className="w-[180px] bg-background"><SelectValue /></SelectTrigger><SelectContent>{availableStages.map((stage) => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}</SelectContent></Select>}<Button variant="ghost" className="text-primary hover:text-primary" onClick={() => { setDetailTask(task); setDetailOpen(true) }}>Open</Button>{canManageProjects && <Button variant="ghost" onClick={() => openEditTask(task)}>Edit</Button>}</div>
                       })}
                     </div>
                   </div>
@@ -860,7 +837,7 @@ function ProjectsPageContent() {
                       <TableBody>
                         {selectedProjectTasks.map((task) => {
                           const employee = employees.find((member) => member.id === task.assignedToId)
-                          return <TableRow key={task.id}><TableCell className="font-medium text-foreground">{task.title}</TableCell><TableCell className="text-muted-foreground">{task.stage || FALLBACK_STAGE}</TableCell><TableCell className="text-muted-foreground">{employee?.name ?? "Unassigned"}</TableCell><TableCell><Chip className={priorityClasses[task.priority]}>{task.priority}</Chip></TableCell><TableCell className="text-muted-foreground">{taskStatuses[task.status]}</TableCell><TableCell className="text-muted-foreground">{formatDate(task.dueDate)}</TableCell></TableRow>
+                          return <TableRow key={task.id}><TableCell className="font-medium text-foreground">{task.title}</TableCell><TableCell className="text-muted-foreground">{task.stage || FALLBACK_STAGE}</TableCell><TableCell className="text-muted-foreground">{employee?.name ?? "Unassigned"}</TableCell><TableCell><Chip className={priorityClasses[task.priority]}>{task.priority}</Chip></TableCell><TableCell className="text-muted-foreground">{taskStatuses[task.status] ?? labelFor(task.status)}</TableCell><TableCell className="text-muted-foreground">{formatDate(task.dueDate)}</TableCell></TableRow>
                         })}
                       </TableBody>
                     </Table>
@@ -869,7 +846,7 @@ function ProjectsPageContent() {
 
                 {viewMode === "info" && (
                   <div className="grid gap-5 @3xl:grid-cols-[1.2fr_0.8fr]">
-                    <Card><CardHeader><CardTitle>Project Information</CardTitle></CardHeader><CardContent className="space-y-4 text-sm text-muted-foreground"><div><p className="text-muted-foreground">Client</p><p className="mt-1 text-foreground">{selectedProject.clientName}</p></div><div><p className="text-muted-foreground">Project Title</p><p className="mt-1 text-foreground">{selectedProject.name}</p></div><div><p className="text-muted-foreground">Description</p><p className="mt-1">{selectedProject.description || "No description added yet."}</p></div><div className="grid gap-4 @lg:grid-cols-2"><div><p className="text-muted-foreground">Due Date</p><p className="mt-1 text-foreground">{formatDate(selectedProject.dueDate)}</p></div><div><p className="text-muted-foreground">Status</p><p className="mt-1 text-foreground">{projectStatuses[selectedProject.status]}</p></div></div></CardContent></Card>
+                    <Card><CardHeader><CardTitle>Project Information</CardTitle></CardHeader><CardContent className="space-y-4 text-sm text-muted-foreground"><div><p className="text-muted-foreground">Client</p><p className="mt-1 text-foreground">{selectedProject.clientName}</p></div><div><p className="text-muted-foreground">Project Title</p><p className="mt-1 text-foreground">{selectedProject.name}</p></div><div><p className="text-muted-foreground">Description</p><p className="mt-1">{selectedProject.description || "No description added yet."}</p></div><div className="grid gap-4 @lg:grid-cols-2"><div><p className="text-muted-foreground">Due Date</p><p className="mt-1 text-foreground">{formatDate(selectedProject.dueDate)}</p></div><div><p className="text-muted-foreground">Status</p><p className="mt-1 text-foreground">{projectStatuses[selectedProject.status] ?? labelFor(selectedProject.status)}</p></div></div></CardContent></Card>
                     <Card><CardHeader><CardTitle>Project Snapshot</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-4 @sm:grid-cols-2"><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Progress</p><p className="mt-1 text-3xl font-semibold">{getProgress(selectedProjectTasks)}%</p></div><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Project Members</p><p className="mt-1 text-3xl font-semibold">{selectedProjectMembers.length}</p></div></div><div className="rounded-2xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">Member Profiles</p><div className="mt-3 grid gap-3 @xl:grid-cols-2">{selectedProjectMembers.length === 0 ? <p className="text-sm text-muted-foreground">No members added yet.</p> : selectedProjectMembers.map((employee) => <div key={employee.id} className="flex min-w-0 items-center gap-3"><Avatar className="size-10 shrink-0"><AvatarImage src={employee.avatar} /><AvatarFallback className="bg-primary/15 text-xs text-primary">{employee.initials}</AvatarFallback></Avatar><div className="min-w-0"><p className="truncate font-medium text-foreground">{employee.name}</p><p className="truncate text-xs text-muted-foreground">{[employee.role, employee.department].filter(Boolean).join(" / ")}</p></div></div>)}</div></div></CardContent></Card>
                   </div>
                 )}
@@ -881,18 +858,15 @@ function ProjectsPageContent() {
 
       <TaskDetailSheet task={detailTask} open={detailOpen} onOpenChange={setDetailOpen} employeeName={employees.find((employee) => employee.id === detailTask?.assignedToId)?.name} employeeAvatar={employees.find((employee) => employee.id === detailTask?.assignedToId)?.avatar ?? undefined} employees={employees} isAdmin={canManageProjects} onStatusChange={handleStatusChange} onEditTask={(task) => { setDetailOpen(false); openEditTask(task) }} />
 
-      <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
-        <DialogContent className="max-w-3xl sm:max-h-[90vh] sm:overflow-y-auto">
-          <DialogHeader><DialogTitle className="text-center text-3xl font-semibold">Create New Project</DialogTitle><DialogDescription className="text-center">Add project details, assign members, and start delivery work right away.</DialogDescription></DialogHeader>
-          <div className="grid gap-5 py-4">
-            <div className="space-y-2"><Label>Client Name*</Label><Input value={projectClientName} onChange={(event) => setProjectClientName(event.target.value)} placeholder="Enter Client Name" className="h-12 bg-background" /></div>
-            <div className="space-y-2"><Label>Project Description</Label><Textarea value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} placeholder="Enter Project Description" rows={4} className="bg-background" /></div>
-            <div className="space-y-2"><Label>Project Due Date</Label><Input type="date" value={projectDueDate} onChange={(event) => setProjectDueDate(event.target.value)} className="h-12 bg-background" /></div>
-            <MemberSelector employees={employees} selectedIds={projectMemberIds} onToggle={toggleProjectMember} />
-          </div>
-          <DialogFooter className="grid grid-cols-1 gap-3 sm:grid-cols-2"><Button type="button" variant="outline" className="h-12 border-warning/20 bg-warning/10 text-warning hover:bg-warning/15 hover:text-warning" onClick={() => { setProjectPriority("high"); toast.success("Template applied: default delivery stages are ready.") }} disabled={projectSaving}>Use Template</Button><Button type="button" className="h-12" onClick={handleProjectCreate} loading={projectSaving}>Next</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProjectWizard
+        open={projectDialogOpen}
+        onOpenChange={setProjectDialogOpen}
+        employees={employees}
+        onCreated={async (project) => {
+          await loadProjects()
+          setSelectedProjectId(project.id)
+        }}
+      />
 
       <Dialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
         <DialogContent className="max-w-2xl sm:max-h-[90vh] sm:overflow-y-auto">

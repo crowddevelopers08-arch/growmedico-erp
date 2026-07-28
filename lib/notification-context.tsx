@@ -19,6 +19,9 @@ import {
   requestAndSubscribe,
   unsubscribeFromPush,
 } from "./push-client"
+import { soundService } from "./sound/sound-service"
+import { soundForNotificationType } from "./sound/use-notification-sound"
+import { useSoundStore } from "./sound/sound-store"
 
 export interface AppNotification {
   id: string
@@ -120,6 +123,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       setNotifications((prev) => [notif, ...prev].slice(0, 100))
       setUnreadCount((c) => c + 1)
+
+      // Per-type sound (message / task / approval / rejection / general),
+      // unless the user muted. Call notifications keep their own ringtone.
+      if (!useSoundStore.getState().muted) {
+        soundService.play(soundForNotificationType(notif.type))
+      }
 
       // WhatsApp-style pop.
       toast(notif.title, {

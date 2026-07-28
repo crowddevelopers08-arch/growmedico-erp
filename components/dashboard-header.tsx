@@ -19,8 +19,9 @@ import { Badge } from "@/components/ui/badge"
 import { EmployeeDialog } from "@/components/employee-dialog"
 import { LeaveRequestDialog } from "@/components/leave-request-dialog"
 import { useNotifications } from "@/lib/notification-context"
-import { notificationMeta, relativeTime } from "@/lib/notification-display"
 import { PushToggle } from "@/components/push-toggle"
+import { NotificationCard } from "@/components/notifications/notification-card"
+import { UnreadBadge } from "@/components/notifications/unread-badge"
 import { cn } from "@/lib/utils"
 
 export function DashboardHeader() {
@@ -96,11 +97,7 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative size-9">
                 <Bell className="size-4 text-muted-foreground" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-chart-1 px-1 text-tiny font-semibold text-white">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
+                <UnreadBadge count={unreadCount} className="absolute -top-0.5 -right-0.5" />
                 <span className="sr-only">Notifications</span>
               </Button>
             </DropdownMenuTrigger>
@@ -135,33 +132,14 @@ export function DashboardHeader() {
                   </div>
                 )}
 
-                {recent.map((notif) => {
-                  const { icon: Icon, color } = notificationMeta(notif.type)
-                  return (
-                    <button
-                      key={notif.id}
-                      onClick={() => handleOpen(notif)}
-                      className={cn(
-                        "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
-                        !notif.read && "bg-primary/5",
-                      )}
-                    >
-                      <span className={cn("mt-0.5 shrink-0", color)}>
-                        <Icon className="size-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-medium">{notif.title}</span>
-                          <span className="shrink-0 text-tiny text-muted-foreground">
-                            {relativeTime(notif.createdAt)}
-                          </span>
-                        </div>
-                        <p className="line-clamp-2 text-xs text-muted-foreground">{notif.message}</p>
-                      </div>
-                      {!notif.read && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-chart-1" />}
-                    </button>
-                  )
-                })}
+                {recent.map((notif) => (
+                  <NotificationCard
+                    key={notif.id}
+                    notification={notif}
+                    variant="compact"
+                    onOpen={handleOpen}
+                  />
+                ))}
               </div>
 
               <DropdownMenuSeparator className="my-0" />

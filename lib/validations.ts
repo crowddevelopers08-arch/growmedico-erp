@@ -94,13 +94,24 @@ export const taskCreateSchema = z.object({
   priority: z.enum(taskPriorities).optional(),
   status: z.enum(taskStatuses).optional(),
   stage: z.string().trim().optional().nullable(),
+  startDate: z.string().trim().optional().nullable(),
   dueDate: z.string().trim().optional().nullable(),
+  tags: z.array(z.string().trim().min(1)).optional(),
   estimatedHours: z.coerce
     .number()
     .positive("Estimated hours must be greater than 0")
     .max(2000, "Estimated hours is too large")
     .optional()
     .nullable(),
+  // Stopwatch state. trackedSeconds is the banked total; timerStartedAt is an
+  // ISO string while the timer runs and null when it is stopped.
+  trackedSeconds: z.coerce.number().int().min(0).max(60 * 60 * 24 * 365).optional(),
+  timerStartedAt: z.string().trim().optional().nullable(),
+  reminderAt: z.string().trim().optional().nullable(),
+  recurrenceRule: z.string().trim().max(200).optional().nullable(),
+  customFields: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional().nullable(),
+  parentTaskId: z.string().trim().min(1).optional().nullable(),
+  orderIndex: z.coerce.number().int().optional(),
 })
 
 export const taskUpdateSchema = taskCreateSchema.partial()
@@ -113,6 +124,64 @@ export const projectCreateSchema = z.object({
   priority: z.enum(taskPriorities).optional(),
   status: z.enum(["open", "in_progress", "completed", "on_hold"]).optional(),
   memberIds: z.array(z.string()).optional(),
+})
+
+// --- Project wizard -------------------------------------------------------
+// The multi-step create flow posts everything at once on the final step, so the
+// whole payload is validated as a single object. Stage and attribute names are
+// what tasks reference, so they are trimmed and required.
+
+const hexColor = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, "Pick a colour")
+
+export const projectStageSchema = z.object({
+  name: z.string().trim().min(1, "Stage name is required").max(60, "Stage name is too long"),
+  color: hexColor.optional(),
+})
+
+export const projectAttributeSchema = z.object({
+  scope: z.enum(["project", "task"]),
+  kind: z.enum(["status", "tag", "priority"]),
+  name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+  color: hexColor.optional(),
+  isTerminal: z.boolean().optional(),
+})
+
+export const projectWizardSchema = projectCreateSchema.extend({
+  visibility: z.enum(["public", "private"]).optional(),
+  ownerId: z.string().trim().min(1).optional().nullable(),
+  defaultAssigneeId: z.string().trim().min(1).optional().nullable(),
+  startDate: z.string().trim().optional().nullable(),
+  tags: z.array(z.string().trim().min(1)).optional(),
+  // Ordered — the array index becomes the stage's orderIndex.
+  stages: z.array(projectStageSchema).max(30, "That is a lot of stages").optional(),
+  attributes: z.array(projectAttributeSchema).max(200).optional(),
+  // When set, the template's starter tasks are cloned into the new project.
+  templateId: z.string().trim().min(1).optional().nullable(),
+})
+
+export const templateCreateSchema = z.object({
+  name: z.string().trim().min(1, "Template name is required").max(120, "Template name is too long"),
+  description: z.string().trim().max(600, "Description is too long").optional().nullable(),
+  category: z.string().trim().max(60).optional(),
+  tag: z.string().trim().max(60).optional().nullable(),
+  coverImage: z.string().trim().max(500).optional().nullable(),
+  stages: z.array(projectStageSchema).optional(),
+  attributes: z.array(projectAttributeSchema).optional(),
+  tasks: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        description: z.string().trim().max(2000).optional().nullable(),
+        priority: z.enum(taskPriorities).optional(),
+        stageName: z.string().trim().max(60).optional().nullable(),
+        statusName: z.string().trim().max(60).optional().nullable(),
+        estimatedHours: z.coerce.number().positive().max(2000).optional().nullable(),
+      })
+    )
+    .optional(),
 })
 
 export const channelCreateSchema = z.object({
