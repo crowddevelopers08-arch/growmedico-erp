@@ -22,3 +22,6 @@ node_modules
 .next/
 .DS_Store
 /lib/generated/prisma
+
+# npm lockfile — this project uses pnpm
+package-lock.json
