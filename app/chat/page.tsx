@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { MessageSquare, Users, Pencil, Check, CheckCheck, X, Play, Pause, FileText, Download, Phone, Video, Search, ChevronLeft, Plus, UserPlus, Info } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
+import { CallButton } from "@/components/call/call-button"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -685,12 +686,21 @@ function ChatPageContent() {
                     <Info className="size-3.5 sm:size-4" />
                   </Button>
                 )}
-                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground sm:size-8" onClick={() => toast("Voice call option opened")} title="Voice Call">
-                  <Phone className="size-3.5 sm:size-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground sm:size-8" onClick={() => toast("Video call option opened")} title="Video Call">
-                  <Video className="size-3.5 sm:size-4" />
-                </Button>
+                {selectedChannel.peerUserId ? (
+                  // 1:1 DM — real voice + video calling to the other person.
+                  <CallButton userId={selectedChannel.peerUserId} />
+                ) : (
+                  // Group DM — the calling system is 1:1 only, so group calls
+                  // aren't available. Shown disabled rather than faked.
+                  <>
+                    <Button variant="ghost" size="icon" disabled className="size-7 text-muted-foreground sm:size-8" title="Group calls aren't available yet">
+                      <Phone className="size-3.5 sm:size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" disabled className="size-7 text-muted-foreground sm:size-8" title="Group calls aren't available yet">
+                      <Video className="size-3.5 sm:size-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 

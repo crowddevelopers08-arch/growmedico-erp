@@ -405,8 +405,10 @@ function ChannelsPageContent() {
                 >
                   <Users className="size-3.5 sm:size-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground sm:size-8" onClick={() => toast("Voice call option opened")} title="Voice Call"><Phone className="size-3.5 sm:size-4" /></Button>
-                <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground sm:size-8" onClick={() => toast("Video call option opened")} title="Video Call"><Video className="size-3.5 sm:size-4" /></Button>
+                {/* Channels are group spaces; the calling system is 1:1 only,
+                    so channel calls aren't available (shown disabled, not faked). */}
+                <Button variant="ghost" size="icon" disabled className="size-7 text-muted-foreground sm:size-8" title="Channel calls aren't available yet"><Phone className="size-3.5 sm:size-4" /></Button>
+                <Button variant="ghost" size="icon" disabled className="size-7 text-muted-foreground sm:size-8" title="Channel calls aren't available yet"><Video className="size-3.5 sm:size-4" /></Button>
               </div>
             </div>
 
