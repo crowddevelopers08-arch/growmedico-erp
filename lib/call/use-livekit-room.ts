@@ -43,6 +43,30 @@ export interface LiveKitControls {
   switchCamera: () => Promise<void>
 }
 
+/**
+ * Turn a getUserMedia failure into a message the user can act on. The order
+ * matters: an insecure origin blocks media outright, so check it first.
+ */
+function mediaErrorMessage(err: unknown): string {
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    return "Calls need a secure page. Open the app on localhost or over HTTPS — camera/mic are blocked on plain http:// LAN addresses."
+  }
+  const name = (err as DOMException)?.name
+  switch (name) {
+    case "NotAllowedError":
+    case "SecurityError":
+      return "Microphone/camera access was blocked. Allow it for this site (and in your OS privacy settings), then call again."
+    case "NotFoundError":
+    case "DevicesNotFoundError":
+      return "No microphone or camera was found on this device."
+    case "NotReadableError":
+    case "TrackStartError":
+      return "Your microphone or camera is already in use by another app."
+    default:
+      return "Couldn't access your microphone or camera."
+  }
+}
+
 function mapQuality(q: LKQuality): ConnectionQuality {
   switch (q) {
     case LKQuality.Excellent:
@@ -135,16 +159,32 @@ export function useLiveKitRoom({ token, serverUrl, isVideo, enabled, onFatal }: 
         setTracks((t) => ({ ...t, localVideo: null }))
       })
 
-    ;(async () => {
+    // Defer the actual connect by a macrotask. React StrictMode (dev) mounts the
+    // effect, runs its cleanup, then mounts again — all synchronously. Deferring
+    // means the throwaway mount's cleanup clears this timer before any network
+    // happens, so we never connect two participants with the same identity (which
+    // makes the server close the first peer connection mid-offer). Only the real
+    // mount reaches room.connect().
+    const connectTimer = setTimeout(async () => {
       try {
         await room.connect(serverUrl, token)
         if (disposed) return
         setConnected(true)
         setActive()
 
-        // Publish according to call type.
-        await room.localParticipant.setMicrophoneEnabled(true)
-        if (isVideo) await room.localParticipant.setCameraEnabled(true)
+        // Publish according to call type. Media (getUserMedia) is the most
+        // common failure point — permission denied, no device, insecure origin —
+        // so it's caught on its own with a message the user can act on, rather
+        // than being reported as a generic connection error.
+        try {
+          await room.localParticipant.setMicrophoneEnabled(true)
+          if (isVideo) await room.localParticipant.setCameraEnabled(true)
+        } catch (mediaErr) {
+          if (disposed) return
+          console.error("[livekit] media error", mediaErr)
+          onFatal?.(mediaErrorMessage(mediaErr))
+          return
+        }
 
         // The peer may already be in the room (they accepted first).
         if (room.remoteParticipants.size > 0) {
@@ -154,16 +194,20 @@ export function useLiveKitRoom({ token, serverUrl, isVideo, enabled, onFatal }: 
       } catch (err) {
         if (disposed) return
         console.error("[livekit] connect failed", err)
-        onFatal?.("Couldn't connect to the call")
+        onFatal?.("Couldn't connect to the call server")
       }
-    })()
+    }, 0)
 
     return () => {
       disposed = true
+      clearTimeout(connectTimer)
       audioElsRef.current.forEach((el) => el.remove())
       audioElsRef.current.clear()
       room.removeAllListeners()
-      room.disconnect().catch(() => {})
+      // Only disconnect if we actually got past connect — disconnecting a room
+      // that never connected is a no-op but avoids a stray close on the
+      // throwaway StrictMode mount.
+      if (room.state !== "disconnected") room.disconnect().catch(() => {})
       roomRef.current = null
       setConnected(false)
       setTracks({ localVideo: null, remoteVideo: null, remoteScreen: null })

@@ -4,7 +4,7 @@ import { randomUUID } from "crypto"
 import { z } from "zod"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { callInclude, isUserBusy, toCallRecord } from "@/lib/call/service"
+import { callInclude, endUserLiveCalls, isUserBusy, sweepStaleCalls, toCallRecord } from "@/lib/call/service"
 import { emitCall, isUserOnline } from "@/lib/call/signal"
 import { ensureRoom } from "@/lib/call/livekit"
 import type { CallSignal } from "@/lib/call/types"
@@ -36,6 +36,13 @@ export async function POST(req: NextRequest) {
 
   const receiver = await prisma.user.findUnique({ where: { id: receiverId }, select: { id: true } })
   if (!receiver) return NextResponse.json({ error: "User not found" }, { status: 404 })
+
+  // Self-heal before checking availability: finalize calls that timed out or
+  // were left open by a crashed client, and abandon any prior call the caller is
+  // still attached to (they're starting fresh). This keeps one orphaned row from
+  // permanently wedging both users at "busy".
+  await sweepStaleCalls()
+  await endUserLiveCalls(callerId)
 
   // The caller can't already be on a call, and the receiver must be free.
   if (await isUserBusy(callerId)) {

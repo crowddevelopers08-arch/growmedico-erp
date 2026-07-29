@@ -4,7 +4,7 @@
 
 import "server-only"
 import { prisma } from "@/lib/prisma"
-import type { CallRecord, CallStatus, CallType } from "./types"
+import { RING_TIMEOUT_MS, type CallRecord, type CallStatus, type CallType } from "./types"
 
 /** The exact user shape needed to render a call party. */
 const partySelect = {
@@ -68,15 +68,58 @@ export function toCallRecord(row: CallRow): CallRecord {
 /** Statuses that mean a user is currently tied up in a call. */
 export const LIVE_STATUSES = ["ringing", "accepted"] as const
 
+// A ringing call past this age never rang through — grace beyond the client's
+// ring timeout. An accepted call older than the hard cap is treated as orphaned
+// (a client crashed without hanging up); real 1:1 calls never run this long.
+const RING_STALE_MS = RING_TIMEOUT_MS + 10_000
+const ACCEPTED_STALE_MS = 6 * 60 * 60 * 1000
+
 /**
- * Is this user already in a live call? Used to short-circuit a new invite with
- * a busy signal instead of a second ringing call.
+ * Finalize calls that were abandoned without a proper hang-up, so a crashed or
+ * force-closed client can't leave a row that blocks all future calls. Safe to
+ * call on every start; it only touches genuinely stale rows.
  */
-export async function isUserBusy(userId: string): Promise<boolean> {
-  const live = await prisma.call.findFirst({
+export async function sweepStaleCalls(): Promise<void> {
+  const now = Date.now()
+  await prisma.call.updateMany({
+    where: { status: "ringing", startedAt: { lt: new Date(now - RING_STALE_MS) } },
+    data: { status: "missed", endedAt: new Date() },
+  })
+  await prisma.call.updateMany({
+    where: { status: "accepted", startedAt: { lt: new Date(now - ACCEPTED_STALE_MS) } },
+    data: { status: "ended", endedAt: new Date() },
+  })
+}
+
+/** Force-finalize any live call this user is still attached to. Called when
+ *  they start a fresh call — a prior unfinished row is by definition abandoned. */
+export async function endUserLiveCalls(userId: string): Promise<void> {
+  await prisma.call.updateMany({
     where: {
       status: { in: [...LIVE_STATUSES] },
       OR: [{ callerId: userId }, { receiverId: userId }],
+    },
+    data: { status: "ended", endedAt: new Date() },
+  })
+}
+
+/**
+ * Is this user already in a live call? Ringing rows past the stale window are
+ * ignored so a timed-out invite never reads as busy.
+ */
+export async function isUserBusy(userId: string): Promise<boolean> {
+  const cutoff = new Date(Date.now() - RING_STALE_MS)
+  const live = await prisma.call.findFirst({
+    where: {
+      OR: [{ callerId: userId }, { receiverId: userId }],
+      AND: [
+        {
+          OR: [
+            { status: "accepted" },
+            { status: "ringing", startedAt: { gte: cutoff } },
+          ],
+        },
+      ],
     },
     select: { id: true },
   })

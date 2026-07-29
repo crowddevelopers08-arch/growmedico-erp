@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { CallButton } from "@/components/call/call-button"
 import type { AccountRole } from "@/lib/types"
 
 interface TeamMember {
@@ -85,6 +86,9 @@ function MemberCard({ member }: { member: TeamMember }) {
               <cfg.icon className="size-3" />
               {cfg.label}
             </Badge>
+            {/* Voice + video call. Hides for yourself; disables when the person
+                isn't currently online (no signaling stream open). */}
+            <CallButton userId={member.userId} className="ml-auto shrink-0" />
           </div>
           {(member.jobRole || member.department) && (
             <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
